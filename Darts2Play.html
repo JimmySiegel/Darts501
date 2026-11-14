@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voice Darts Scorer</title>
+<style>
+  body{font-family:system-ui,-apple-system,sans-serif;background:#121212;color:#fff;display:flex;flex-direction:column;align-items:center;min-height:100vh;margin:0;padding:16px;text-align:center;box-sizing:border-box}
+  select{background:#1e1e1e;color:#fff;border:2px solid #333;border-radius:8px;padding:10px 12px;font-size:1rem}
+  .setup{display:flex;gap:10px;margin-bottom:10px}
+  .label{font-size:.8rem;text-transform:uppercase;letter-spacing:2px;color:#9e9e9e;margin-bottom:4px}
+  .boards{display:flex;gap:12px;width:100%;max-width:560px;justify-content:center}
+  .pl{flex:1;border:3px solid #222;border-radius:14px;padding:8px 4px;background:#181818}
+  .pl.active{border-color:#00e676}
+  .big{font-size:min(20vw,7.5rem);font-weight:800;line-height:1.05;color:#00e676}
+  .two .big{font-size:min(15vw,5rem)}
+  .tracker{display:flex;gap:10px;margin:12px 0}
+  .pill{background:#1e1e1e;border:2px solid #333;border-radius:8px;padding:8px 14px;font-weight:700;color:#757575;min-width:58px}
+  .pill.filled{border-color:#2979ff;color:#fff;background:#1a237e}
+  .box{background:#1e1e1e;border:2px solid #333;border-radius:12px;padding:12px 28px;margin:6px 0;min-width:260px}
+  .co{font-size:1.8rem;font-weight:700;color:#ffab00}
+  table{border-collapse:collapse;margin:6px 0;font-size:1.5rem;font-weight:700}
+  td{padding:3px 22px;min-width:40px}
+  td.n{color:#ffab00}
+  .status{font-size:1.1rem;margin:12px 0;color:#64b5f6;min-height:1.5em}
+  .controls{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  button{padding:13px 20px;font-size:1rem;font-weight:600;border:none;border-radius:8px;background:#2979ff;color:#fff}
+  button.secondary{background:#333}
+  button.listening{background:#d50000}
+  .hide{display:none}
+</style>
+</head>
+<body>
+
+  <div class="setup">
+    <select id="gameSel" onchange="setup()">
+      <option value="501">501</option>
+      <option value="301">301</option>
+      <option value="cricket">Cricket</option>
+    </select>
+    <select id="plSel" onchange="setup()">
+      <option value="1">1 Player</option>
+      <option value="2">2 Players</option>
+    </select>
+  </div>
+
+  <div id="boards" class="boards"></div>
+  <div id="turn" class="label" style="margin-top:8px"></div>
+
+  <div class="tracker">
+    <div id="d0" class="pill">Dart 1</div>
+    <div id="d1" class="pill">Dart 2</div>
+    <div id="d2" class="pill">Dart 3</div>
+  </div>
+
+  <div id="coBox" class="box">
+    <div class="label">Suggested Target</div>
+    <div id="checkout" class="co"></div>
+  </div>
+  <table id="cricket" class="hide"></table>
+
+  <div id="status" class="status">Tap "Start Listening", then say darts ("triple twenty, double sixteen") or a turn total ("one hundred and forty")</div>
+
+  <div class="controls">
+    <button id="micBtn" onclick="toggleMic()">Start Listening</button>
+    <button class="secondary" onclick="undo()">Undo</button>
+    <button class="secondary" onclick="nextPlayer()">Next Player</button>
+    <button class="secondary" onclick="newLeg()">New Leg</button>
+  </div>
+
+<script>
+  let S, hist = [];
+  let isListening = false, recognition = null, wakeLock = null;
+
+  const startScore = () => (S.game === "301" ? 301 : 501);
+  const P = () => S.players[S.cur];
+  const nm = () => (S.np > 1 ? "P" + (S.cur + 1) : "You");
+
+  function setup() {
+    const game = document.getElementById("gameSel").value;
+    const np = parseInt(document.getElementById("plSel").value, 10);
+    S = { game, np, cur: 0, starter: 0, darts: [], winner: null, players: [] };
+    const n = startScore();
+    for (let i = 0; i < np; i++) {
+      S.players.push({ score: n, ts: n, pts: 0, wins: 0, marks: {20:0,19:0,18:0,17:0,16:0,15:0,25:0} });
+    }
+    hist = [];
+    render(game === "cricket" ? "Cricket: close 20-15 and Bull. Say darts like 'triple twenty'." : "New game started");
+  }
+
+  function snap() { hist.push(JSON.stringify(S)); if (hist.length > 300) hist.shift(); }
+
+  function newLeg() {
+    snap();
+    S.starter = (S.starter + 1) % S.np;
+    S.cur = S.starter;
+    S.darts = [];
+    S.winner = null;
+    S.players.forEach(p => {
+      p.score = p.ts = startScore();
+      p.pts = 0;
+      for (const k in p.marks) p.marks[k] = 0;
+    });
+    render("New leg");
+  }
+
+  function undo() {
+    if (!hist.length) return;
+    S = JSON.parse(hist.pop());
+    render("Undone");
+  }
+
+  function nextPlayer() {
+    if (S.winner !== null) return;
+    snap();
+    endTurn(`${nm()} turn ended`);
+  }
+
+  function endTurn(msg) {
+    S.cur = (S.cur + 1) % S.np;
+    S.darts = [];
+    P().ts = P().score;
+    render(msg);
+  }
+
+  // ---------- Checkout suggestions (computed) ----------
+  const prefD = [20,16,8,12,10,18,4,6,14,2,1,3,5,7,9,11,13,15,17,19].map(i => [i * 2, "D" + i]).concat([[50, "Bull"]]);
+  const opts = [];
+  for (let i = 20; i >= 1; i--) opts.push([i * 3, "T" + i]);
+  for (let i = 20; i >= 1; i--) opts.push([i, String(i)]);
+  opts.push([25, "25"], [50, "Bull"]);
+  const coMemo = {};
+
+  function findCheckout(r) {
+    for (const [dp, dl] of prefD) if (r === dp) return dl;
+    for (const [dp, dl] of prefD) {
+      const need = r - dp;
+      if (need > 0) for (const [p, l] of opts) if (p === need) return `${l} - ${dl}`;
+    }
+    for (const [dp, dl] of prefD) {
+      const need = r - dp;
+      if (need > 0) for (const [p1, l1] of opts) for (const [p2, l2] of opts) {
+        if (p1 + p2 === need) return `${l1} - ${l2} - ${dl}`;
+      }
+    }
+    return null;
+  }
+
+  function getSuggestion(r) {
+    if (r === 0) return "GAME SHOT!";
+    if (r > 170) return "Power Scoring (T20 / T19)";
+    if (!(r in coMemo)) coMemo[r] = findCheckout(r);
+    return coMemo[r] || "No 3-dart finish: set up (e.g. T20 / 20)";
+  }
+
+  // ---------- Scoring ----------
+  function dart(n, mult) {
+    if (S.winner !== null) { render("Leg over. Tap New Leg."); return false; }
+    snap();
+    const p = P();
+    const pts = n * mult;
+    const label = n === 0 ? "Miss" : n === 25 ? (mult === 2 ? "Bull" : "25") : (mult === 3 ? "T" : mult === 2 ? "D" : "") + n;
+
+    if (S.game === "cricket") {
+      const opp = S.np > 1 ? S.players[1 - S.cur] : null;
+      S.darts.push(label);
+      if (n in p.marks) {
+        let m = mult;
+        while (m-- > 0) {
+          if (p.marks[n] < 3) p.marks[n]++;
+          else if (!opp || opp.marks[n] < 3) p.pts += n;
+        }
+      }
+      const closed = Object.values(p.marks).every(v => v >= 3);
+      if (closed && (!opp || p.pts >= opp.pts)) {
+        S.winner = S.cur; p.wins++;
+        render(`${nm()} wins! Everything closed.`);
+        return false;
+      }
+      if (S.darts.length === 3) endTurn(`${nm()}: ${S.darts.join(", ")}`);
+      else render(label);
+      return true;
+    }
+
+    const next = p.score - pts;
+    if (next < 0 || next === 1 || (next === 0 && mult !== 2)) {
+      p.score = p.ts;
+      endTurn(`${nm()} BUST on ${label}`);
+      return false;
+    }
+    p.score = next;
+    S.darts.push(label);
+    if (next === 0) {
+      S.winner = S.cur; p.wins++;
+      render(`GAME SHOT! ${nm()} wins with ${label}!`);
+      return false;
+    }
+    if (S.darts.length === 3) endTurn(`${nm()} scored ${p.ts - p.score}`);
+    else render(`${label} (-${pts})`);
+    return true;
+  }
+
+  function turnTotal(pts) {
+    if (S.winner !== null) { render("Leg over. Tap New Leg."); return; }
+    if (S.darts.length) { render('Finish your darts or say "undo" first.'); return; }
+    if (pts > 180) { render(`Invalid turn score: ${pts}`); return; }
+    snap();
+    const p = P();
+    const next = p.score - pts;
+    if (next < 0 || next === 1) { p.score = p.ts; endTurn(`${nm()} BUST (${pts})`); return; }
+    p.score = next;
+    if (next === 0) { S.winner = S.cur; p.wins++; render(`GAME SHOT! ${nm()} checks out ${pts}!`); return; }
+    endTurn(`${nm()} scored ${pts}`);
+  }
+
+  // ---------- Display ----------
+  function render(msg) {
+    const x = S.game !== "cricket";
+    const b = document.getElementById("boards");
+    b.className = "boards" + (S.np > 1 ? " two" : "");
+    b.innerHTML = S.players.map((p, i) =>
+      `<div class="pl ${i === S.cur && S.winner === null ? "active" : ""}">
+         <div class="label">${S.np > 1 ? "P" + (i + 1) : (x ? "Remaining" : "Points")} · ${p.wins} win${p.wins === 1 ? "" : "s"}</div>
+         <div class="big">${x ? p.score : p.pts}</div></div>`).join("");
+
+    document.getElementById("turn").innerText =
+      S.winner !== null ? "Leg over" : (S.np > 1 ? `P${S.cur + 1}'s turn` : "");
+
+    for (let i = 0; i < 3; i++) {
+      const el = document.getElementById("d" + i);
+      el.innerText = S.darts[i] || `Dart ${i + 1}`;
+      el.classList.toggle("filled", !!S.darts[i]);
+    }
+
+    document.getElementById("coBox").classList.toggle("hide", !x);
+    document.getElementById("cricket").classList.toggle("hide", x);
+    if (x) {
+      document.getElementById("checkout").innerText = getSuggestion(P().score);
+    } else {
+      const sym = ["", "/", "X", "◉"];
+      const rows = [20, 19, 18, 17, 16, 15, 25].map(n =>
+        `<tr><td>${sym[S.players[0].marks[n]]}</td><td class="n">${n === 25 ? "Bull" : n}</td><td>${S.np > 1 ? sym[S.players[1].marks[n]] : ""}</td></tr>`);
+      document.getElementById("cricket").innerHTML = rows.join("");
+    }
+    if (msg) document.getElementById("status").innerText = msg;
+  }
+
+  // ---------- Speech parsing ----------
+  const UNITS = {one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9};
+  const TEENS = {ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,sixteen:16,seventeen:17,eighteen:18,nineteen:19};
+  const TENS  = {twenty:20,thirty:30,forty:40,fifty:50,sixty:60,seventy:70,eighty:80,ninety:90};
+
+  function wordsToDigits(text) {
+    const out = [];
+    let total = 0, last = null;
+    const flush = () => { if (last) { out.push(String(total)); total = 0; last = null; } };
+    for (const w of text.split(/\s+/)) {
+      if (w in UNITS) {
+        if (last === "t" || last === "h") { total += UNITS[w]; last = "u2"; }
+        else { flush(); total = UNITS[w]; last = "u"; }
+      } else if (w in TEENS) {
+        if (last === "h") { total += TEENS[w]; last = "teen"; }
+        else { flush(); total = TEENS[w]; last = "teen"; }
+      } else if (w in TENS) {
+        if (last === "h") { total += TENS[w]; last = "t"; }
+        else { flush(); total = TENS[w]; last = "t"; }
+      } else if (w === "hundred") {
+        if (last === "u") { total *= 100; last = "h"; }
+        else { flush(); total = 100; last = "h"; }
+      } else if (w === "and" && last) {
+        continue;
+      } else { flush(); out.push(w); }
+    }
+    flush();
+    return out.join(" ");
+  }
+
+  function parseSpeech(text) {
+    let c = text.toLowerCase().trim().replace(/[,.]/g, " ");
+    if (!c) return;
+    if (/\bundo\b/.test(c)) { undo(); return; }
+    if (/\bnext\b/.test(c)) { nextPlayer(); return; }
+    if (/\b(reset|new game|new leg)\b/.test(c)) { newLeg(); return; }
+
+    c = c.replace(/\btreble\b|\btrouble\b|\btriple\b/g, "triple")
+         .replace(/\bt\s?(\d+)/g, "triple $1")
+         .replace(/\bd\s?(\d+)/g, "double $1")
+         .replace(/\bbullseye\b|\bbull's eye\b|\bdouble bull\b/g, "bull")
+         .replace(/\bouter bull\b|\bsingle bull\b/g, "25")
+         .replace(/\bto\b|\btoo\b/g, "two")
+         .replace(/\bfor\b/g, "four");
+    c = wordsToDigits(c);
+
+    const darts = [];
+    const re = /(triple|double|single)?\s*(\d+|bull|miss|zero|nothing)/g;
+    let m;
+    while ((m = re.exec(c)) !== null) darts.push({ mod: m[1] || null, val: m[2] });
+    if (!darts.length) { render(`Didn't catch a score in: "${text}"`); return; }
+
+    const hasMod = darts.some(d => d.mod || d.val === "bull" || d.val === "miss" || d.val === "25");
+    if (S.game !== "cricket" && !hasMod && darts.length === 1) {
+      const n = parseInt(darts[0].val, 10);
+      if (!isNaN(n)) { turnTotal(n); return; }
+    }
+
+    for (const d of darts) {
+      let n, mult;
+      if (d.val === "miss" || d.val === "zero" || d.val === "nothing") { n = 0; mult = 1; }
+      else if (d.val === "bull") { n = 25; mult = d.mod === "single" ? 1 : 2; }
+      else {
+        n = parseInt(d.val, 10);
+        if (n === 25) mult = d.mod === "double" ? 2 : 1;
+        else if (n >= 1 && n <= 20) mult = d.mod === "triple" ? 3 : d.mod === "double" ? 2 : 1;
+        else { render(`"${d.val}" isn't a valid dart.`); return; }
+      }
+      if (!dart(n, mult)) break;
+    }
+  }
+
+  // ---------- Microphone ----------
+  async function setWakeLock(on) {
+    try {
+      if (on && "wakeLock" in navigator) wakeLock = await navigator.wakeLock.request("screen");
+      else if (wakeLock) { await wakeLock.release(); wakeLock = null; }
+    } catch (_) {}
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && isListening) setWakeLock(true);
+  });
+
+  function setupRecognition() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return null;
+    const r = new SR();
+    r.lang = "en-US";
+    r.continuous = true;
+    r.interimResults = false;
+    r.onresult = (e) => {
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) {
+          const t = e.results[i][0].transcript;
+          document.getElementById("status").innerText = `Heard: "${t}"`;
+          parseSpeech(t);
+        }
+      }
+    };
+    r.onerror = (e) => {
+      if (e.error === "no-speech" || e.error === "aborted") return;
+      isListening = false; setMicUI(false); setWakeLock(false);
+      document.getElementById("status").innerText =
+        e.error === "not-allowed" || e.error === "service-not-allowed"
+          ? "Microphone blocked. Allow mic access (needs https or localhost)."
+          : `Mic error: ${e.error}`;
+    };
+    r.onend = () => {
+      if (isListening) { try { r.start(); } catch (_) {} }
+      else setMicUI(false);
+    };
+    return r;
+  }
+
+  function setMicUI(on) {
+    const b = document.getElementById("micBtn");
+    b.innerText = on ? "Stop Listening" : "Start Listening";
+    b.classList.toggle("listening", on);
+  }
+
+  function toggleMic() {
+    if (!recognition) recognition = setupRecognition();
+    if (!recognition) {
+      document.getElementById("status").innerText = "Speech recognition isn't supported here. Use Chrome (Android) or Safari (iOS).";
+      return;
+    }
+    if (isListening) {
+      isListening = false; recognition.stop(); setMicUI(false); setWakeLock(false);
+      document.getElementById("status").innerText = "Stopped listening";
+    } else {
+      try {
+        isListening = true; recognition.start(); setMicUI(true); setWakeLock(true);
+        document.getElementById("status").innerText = "Listening… say your darts or turn total";
+      } catch (err) {
+        isListening = false;
+        document.getElementById("status").innerText = "Couldn't start mic: " + err.message;
+      }
+    }
+  }
+
+  setup();
+</script>
+</body>
+</html>
