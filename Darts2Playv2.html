@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voice Darts</title>
+<style>
+  body{font-family:system-ui,-apple-system,sans-serif;background:#121212;color:#fff;margin:0;padding:16px;text-align:center;box-sizing:border-box;min-height:100vh}
+  .page{max-width:560px;margin:0 auto;display:flex;flex-direction:column;align-items:center}
+  h1{margin:12px 0 18px}
+  select,input{background:#1e1e1e;color:#fff;border:2px solid #333;border-radius:8px;padding:12px;font-size:1rem;width:100%;max-width:320px;box-sizing:border-box;margin:5px 0}
+  button{padding:13px 20px;font-size:1rem;font-weight:600;border:none;border-radius:8px;background:#2979ff;color:#fff}
+  button.sec{background:#333}
+  button.big{font-size:1.2rem;padding:16px 40px;margin:14px 0 8px}
+  button.listening{background:#d50000}
+  .label{font-size:.8rem;text-transform:uppercase;letter-spacing:2px;color:#9e9e9e;margin:4px 0}
+  .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin:8px 0;width:100%}
+  .top{display:flex;justify-content:space-between;align-items:center;width:100%;margin-bottom:8px}
+  .boards{display:flex;gap:12px;width:100%}
+  .pl{flex:1;border:3px solid #222;border-radius:14px;padding:8px 4px;background:#181818}
+  .pl.active{border-color:#00e676}
+  .big-n{font-size:min(20vw,7.5rem);font-weight:800;line-height:1.05;color:#00e676}
+  .two .big-n{font-size:min(15vw,5rem)}
+  .tracker{display:flex;gap:10px;margin:10px 0}
+  .pill{background:#1e1e1e;border:2px solid #333;border-radius:8px;padding:8px 14px;font-weight:700;color:#757575;min-width:58px}
+  .pill.filled{border-color:#2979ff;color:#fff;background:#1a237e}
+  .box{background:#1e1e1e;border:2px solid #333;border-radius:12px;padding:10px 24px;margin:6px 0;min-width:260px}
+  .co{font-size:1.7rem;font-weight:700;color:#ffab00}
+  table.cr{border-collapse:collapse;font-size:1.5rem;font-weight:700}
+  table.cr td{padding:3px 22px;min-width:40px}
+  td.n{color:#ffab00}
+  .status{font-size:1.05rem;margin:10px 0;color:#64b5f6;min-height:1.5em}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%}
+  .card{background:#1e1e1e;border:2px solid #333;border-radius:10px;padding:10px}
+  .card b{display:block;font-size:1.5rem;color:#00e676}
+  .bars{display:flex;align-items:flex-end;gap:4px;height:90px;width:100%;margin:6px 0}
+  .bars div{flex:1;background:#2979ff;border-radius:3px 3px 0 0;min-height:2px}
+  .hist{width:100%;text-align:left;font-size:.9rem;color:#9e9e9e;line-height:1.7}
+  .hide{display:none}
+</style>
+</head>
+<body>
+
+<!-- START PAGE -->
+<div id="pgStart" class="page">
+  <h1>🎯 Voice Darts</h1>
+  <div class="label">Game</div>
+  <select id="gameSel"><option value="501">501</option><option value="301">301</option><option value="cricket">Cricket</option></select>
+  <div class="label">Players</div>
+  <select id="plSel" onchange="togglePl()"><option value="1">1 Player</option><option value="2">2 Players</option></select>
+  <div class="label">Names</div>
+  <input id="n1" maxlength="12" placeholder="Player 1">
+  <input id="n2" maxlength="12" placeholder="Player 2">
+  <button class="big" onclick="startGame()">Start Game</button>
+  <button class="sec" onclick="show('Stats')">📊 Stats</button>
+</div>
+
+<!-- GAME PAGE -->
+<div id="pgGame" class="page hide">
+  <div class="top">
+    <button class="sec" onclick="toMenu()">‹ Menu</button>
+    <div id="gLabel" class="label"></div>
+    <button class="sec" onclick="newLeg()">New Leg</button>
+  </div>
+  <div id="boards" class="boards"></div>
+  <div id="turn" class="label" style="margin-top:8px"></div>
+  <div class="tracker">
+    <div id="d0" class="pill">Dart 1</div><div id="d1" class="pill">Dart 2</div><div id="d2" class="pill">Dart 3</div>
+  </div>
+  <div id="coBox" class="box"><div class="label">Suggested Target</div><div id="checkout" class="co"></div></div>
+  <table id="cricket" class="cr hide"></table>
+  <div id="status" class="status"></div>
+  <div class="row">
+    <button id="micBtn" onclick="toggleMic()">Start Listening</button>
+    <button class="sec" onclick="undo()">Undo</button>
+    <button class="sec" onclick="nextPlayer()">Next Player</button>
+  </div>
+</div>
+
+<!-- STATS PAGE -->
+<div id="pgStats" class="page hide">
+  <div class="top"><button class="sec" onclick="show('Start')">‹ Menu</button><div class="label">Stats</div><span style="width:70px"></span></div>
+  <select id="stPl" onchange="renderStats()"></select>
+  <div id="stBody" style="width:100%"></div>
+  <div class="row" style="margin-top:16px">
+    <button onclick="exportData()">Export</button>
+    <button onclick="$('imp').click()">Import</button>
+    <button class="sec" onclick="clearData()">Clear</button>
+  </div>
+  <input id="imp" type="file" accept=".json,application/json" class="hide" onchange="importData(event)">
+  <div id="sMsg" class="status"></div>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  let D = load(), S, hist = [];
+  let isListening = false, recognition = null, wakeLock = null;
+
+  function load() {
+    try { const d = JSON.parse(localStorage.getItem("darts_v3")); if (d && Array.isArray(d.legs)) return d; } catch (_) {}
+    return { names: ["P1", "P2"], legs: [] };
+  }
+  function store() { try { localStorage.setItem("darts_v3", JSON.stringify(D)); } catch (_) {} }
+
+  function show(p) {
+    ["Start", "Game", "Stats"].forEach(x => $("pg" + x).classList.toggle("hide", x !== p));
+    if (p === "Start") { $("n1").value = D.names[0]; $("n2").value = D.names[1]; togglePl(); }
+    if (p === "Stats") renderStats();
+    window.scrollTo(0, 0);
+  }
+  function togglePl() { $("n2").classList.toggle("hide", $("plSel").value === "1"); }
+  function toMenu() { if (isListening) toggleMic(); show("Start"); }
+
+  const startScore = () => (S.game === "301" ? 301 : 501);
+  const P = () => S.players[S.cur];
+  const nm = () => (S.np > 1 ? S.names[S.cur] : "You");
+
+  function startGame() {
+    const np = +$("plSel").value, game = $("gameSel").value;
+    const n1 = $("n1").value.trim().slice(0, 12) || "P1";
+    const n2 = $("n2").value.trim().slice(0, 12) || "P2";
+    D.names = [n1, n2]; store();
+    const names = np > 1 ? [n1, n1.toLowerCase() === n2.toLowerCase() ? n2 + " 2" : n2] : [n1];
+    S = { game, np, names, cur: 0, starter: 0, darts: [], winner: null, turns: [], tm: 0, lid: Date.now(), players: [] };
+    const n = startScore();
+    for (let i = 0; i < np; i++) S.players.push({ score: n, ts: n, pts: 0, wins: 0, marks: {20:0,19:0,18:0,17:0,16:0,15:0,25:0} });
+    hist = [];
+    show("Game");
+    render(game === "cricket" ? "Close 20-15 and Bull. Say darts like 'triple twenty'." : 'Say darts or a turn total, e.g. "one hundred and forty".');
+  }
+
+  function snap() { hist.push(JSON.stringify(S)); if (hist.length > 300) hist.shift(); }
+
+  function newLeg() {
+    snap();
+    S.starter = (S.starter + 1) % S.np;
+    S.cur = S.starter; S.darts = []; S.winner = null; S.turns = []; S.tm = 0; S.lid = Date.now();
+    S.players.forEach(p => { p.score = p.ts = startScore(); p.pts = 0; for (const k in p.marks) p.marks[k] = 0; });
+    render("New leg");
+  }
+
+  function undo() {
+    if (!hist.length) return;
+    S = JSON.parse(hist.pop());
+    if (S.winner === null) { D.legs = D.legs.filter(l => l.lid !== S.lid); store(); }
+    render("Undone");
+  }
+
+  function nextPlayer() {
+    if (S.winner !== null) return;
+    snap();
+    const pts = S.game === "cricket" ? S.tm : P().ts - P().score;
+    endTurn(`${nm()} turn ended`, pts, S.darts.length, 0);
+  }
+
+  function logTurn(pts, n, b) { if (n > 0) S.turns.push({ p: S.cur, pts, n, ts: P().ts, b }); }
+
+  function endTurn(msg, pts, n, b) {
+    logTurn(pts, n, b);
+    S.cur = (S.cur + 1) % S.np; S.darts = []; S.tm = 0;
+    P().ts = P().score;
+    render(msg);
+  }
+
+  function win(msg, pts, n) {
+    logTurn(pts, n, 0);
+    S.winner = S.cur; P().wins++;
+    D.legs = D.legs.filter(l => l.lid !== S.lid);
+    D.legs.push({ lid: S.lid, t: Date.now(), g: S.game, names: S.names, w: S.winner, turns: S.turns });
+    store();
+    render(msg);
+  }
+
+  // ---------- Checkout suggestions ----------
+  const prefD = [20,16,8,12,10,18,4,6,14,2,1,3,5,7,9,11,13,15,17,19].map(i => [i * 2, "D" + i]).concat([[50, "Bull"]]);
+  const opts = [];
+  for (let i = 20; i >= 1; i--) opts.push([i * 3, "T" + i]);
+  for (let i = 20; i >= 1; i--) opts.push([i, String(i)]);
+  opts.push([25, "25"], [50, "Bull"]);
+  const coMemo = {};
+
+  function findCheckout(r) {
+    for (const [dp, dl] of prefD) if (r === dp) return dl;
+    for (const [dp, dl] of prefD) {
+      const need = r - dp;
+      if (need > 0) for (const [p, l] of opts) if (p === need) return `${l} - ${dl}`;
+    }
+    for (const [dp, dl] of prefD) {
+      const need = r - dp;
+      if (need > 0) for (const [p1, l1] of opts) for (const [p2, l2] of opts) if (p1 + p2 === need) return `${l1} - ${l2} - ${dl}`;
+    }
+    return null;
+  }
+  function getSuggestion(r) {
+    if (r === 0) return "GAME SHOT!";
+    if (r > 170) return "Power Scoring (T20 / T19)";
+    if (!(r in coMemo)) coMemo[r] = findCheckout(r);
+    return coMemo[r] || "No 3-dart finish: set up (T20 / 20)";
+  }
+
+  // ---------- Scoring ----------
+  function dart(n, mult) {
+    if (S.winner !== null) { render("Leg over. Tap New Leg."); return false; }
+    snap();
+    const p = P(), pts = n * mult;
+    const label = n === 0 ? "Miss" : n === 25 ? (mult === 2 ? "Bull" : "25") : (mult === 3 ? "T" : mult === 2 ? "D" : "") + n;
+
+    if (S.game === "cricket") {
+      const opp = S.np > 1 ? S.players[1 - S.cur] : null;
+      S.darts.push(label);
+      if (n in p.marks) {
+        S.tm += mult;
+        let m = mult;
+        while (m-- > 0) {
+          if (p.marks[n] < 3) p.marks[n]++;
+          else if (!opp || opp.marks[n] < 3) p.pts += n;
+        }
+      }
+      const closed = Object.values(p.marks).every(v => v >= 3);
+      if (closed && (!opp || p.pts >= opp.pts)) { win(`${nm()} wins! Everything closed.`, S.tm, S.darts.length); return false; }
+      if (S.darts.length === 3) endTurn(`${nm()}: ${S.darts.join(", ")}`, S.tm, 3, 0);
+      else render(label);
+      return true;
+    }
+
+    const next = p.score - pts;
+    if (next < 0 || next === 1 || (next === 0 && mult !== 2)) {
+      p.score = p.ts;
+      endTurn(`${nm()} BUST on ${label}`, 0, S.darts.length + 1, 1);
+      return false;
+    }
+    p.score = next;
+    S.darts.push(label);
+    if (next === 0) { win(`GAME SHOT! ${nm()} wins with ${label}!`, p.ts, S.darts.length); return false; }
+    if (S.darts.length === 3) endTurn(`${nm()} scored ${p.ts - p.score}`, p.ts - p.score, 3, 0);
+    else render(`${label} (-${pts})`);
+    return true;
+  }
+
+  function turnTotal(pts) {
+    if (S.winner !== null) { render("Leg over. Tap New Leg."); return; }
+    if (S.darts.length) { render('Finish your darts or say "undo" first.'); return; }
+    if (pts > 180) { render(`Invalid turn score: ${pts}`); return; }
+    snap();
+    const p = P(), next = p.score - pts;
+    if (next < 0 || next === 1) { p.score = p.ts; endTurn(`${nm()} BUST (${pts})`, 0, 3, 1); return; }
+    p.score = next;
+    if (next === 0) { win(`GAME SHOT! ${nm()} checks out ${pts}!`, pts, 3); return; }
+    endTurn(`${nm()} scored ${pts}`, pts, 3, 0);
+  }
+
+  // ---------- Game display ----------
+  function render(msg) {
+    const x = S.game !== "cricket";
+    $("gLabel").innerText = `${S.game === "cricket" ? "Cricket" : S.game} · ${S.np} player${S.np > 1 ? "s" : ""}`;
+    const b = $("boards");
+    b.className = "boards" + (S.np > 1 ? " two" : "");
+    b.innerHTML = S.players.map((p, i) =>
+      `<div class="pl ${i === S.cur && S.winner === null ? "active" : ""}">
+        <div class="label">${S.np > 1 ? S.names[i] : (x ? "Remaining" : "Points")} · ${p.wins} win${p.wins === 1 ? "" : "s"}</div>
+        <div class="big-n">${x ? p.score : p.pts}</div></div>`).join("");
+    $("turn").innerText = S.winner !== null ? "Leg over" : (S.np > 1 ? `${S.names[S.cur]}'s turn` : "");
+    for (let i = 0; i < 3; i++) {
+      $("d" + i).innerText = S.darts[i] || `Dart ${i + 1}`;
+      $("d" + i).classList.toggle("filled", !!S.darts[i]);
+    }
+    $("coBox").classList.toggle("hide", !x);
+    $("cricket").classList.toggle("hide", x);
+    if (x) $("checkout").innerText = getSuggestion(P().score);
+    else {
+      const sym = ["", "/", "X", "◉"];
+      $("cricket").innerHTML = [20, 19, 18, 17, 16, 15, 25].map(n =>
+        `<tr><td>${sym[S.players[0].marks[n]]}</td><td class="n">${n === 25 ? "Bull" : n}</td><td>${S.np > 1 ? sym[S.players[1].marks[n]] : ""}</td></tr>`).join("");
+    }
+    if (msg) $("status").innerText = msg;
+  }
+
+  // ---------- Stats ----------
+  function calc(name) {
+    const r = { x: { legs:0, w:0, pts:0, dn:0, f9:0, f9n:0, hi:0, n180:0, n140:0, best:0, att:0, made:0, hco:0, tr:[] }, c: { legs:0, w:0, m:0, t:0, best:0 } };
+    D.legs.forEach(l => {
+      const i = l.names.indexOf(name);
+      if (i < 0) return;
+      const T = l.turns.filter(t => t.p === i), won = l.w === i;
+      if (l.g === "cricket") {
+        const c = r.c; c.legs++; if (won) c.w++;
+        T.forEach(t => { c.m += t.pts; c.t++; c.best = Math.max(c.best, t.pts); });
+        return;
+      }
+      const x = r.x; x.legs++; if (won) x.w++;
+      let lp = 0, ld = 0;
+      T.forEach((t, k) => {
+        x.pts += t.pts; x.dn += t.n; lp += t.pts; ld += t.n;
+        if (k < 3) { x.f9 += t.pts; x.f9n++; }
+        x.hi = Math.max(x.hi, t.pts);
+        if (t.pts === 180) x.n180++;
+        if (t.pts >= 140 && !t.b) x.n140++;
+        if (t.ts >= 2 && t.ts <= 170) x.att++;
+      });
+      if (won && T.length) {
+        x.made++;
+        x.hco = Math.max(x.hco, T[T.length - 1].pts);
+        x.best = x.best ? Math.min(x.best, ld) : ld;
+      }
+      if (ld) x.tr.push(lp * 3 / ld);
+    });
+    return r;
+  }
+
+  function renderStats() {
+    const names = [...new Set(D.legs.flatMap(l => l.names))];
+    const sel = $("stPl"), keep = sel.value;
+    sel.innerHTML = names.map(n => `<option>${n.replace(/</g, "&lt;")}</option>`).join("");
+    if (names.includes(keep)) sel.value = keep;
+    const body = $("stBody");
+    if (!names.length) { body.innerHTML = '<div class="status">No finished legs yet. Play a game to a finish and stats appear here.</div>'; return; }
+    const r = calc(sel.value), x = r.x, c = r.c;
+    const f1 = v => v.toFixed(1), card = (l, v) => `<div class="card"><div class="label">${l}</div><b>${v}</b></div>`;
+    let h = "";
+    if (x.legs) {
+      h += `<div class="label" style="margin-top:14px">301 / 501</div><div class="grid">` +
+        card("3-dart avg", x.dn ? f1(x.pts * 3 / x.dn) : "-") + card("First 9 avg", x.f9n ? f1(x.f9 / x.f9n) : "-") +
+        card("Highest turn", x.hi) + card("180s", x.n180) + card("140+ turns", x.n140) +
+        card("Legs W–L", `${x.w}–${x.legs - x.w}`) + card("Best leg (darts)", x.best || "-") +
+        card("Checkout %", x.att ? Math.round(x.made / x.att * 100) + "%" : "-") + card("Highest checkout", x.hco || "-") + `</div>`;
+      const tr = x.tr.slice(-15), mx = Math.max(...tr, 1);
+      h += `<div class="label" style="margin-top:14px">Average per leg (last ${tr.length})</div><div class="bars">` +
+        tr.map(v => `<div style="height:${v / mx * 100}%" title="${f1(v)}"></div>`).join("") + `</div>`;
+    }
+    if (c.legs) {
+      h += `<div class="label" style="margin-top:14px">Cricket</div><div class="grid">` +
+        card("Legs W–L", `${c.w}–${c.legs - c.w}`) + card("Marks / round", c.t ? f1(c.m / c.t) : "-") + card("Best round (marks)", c.best) + `</div>`;
+    }
+    h += `<div class="label" style="margin-top:14px">Recent legs</div><div class="hist">` +
+      D.legs.filter(l => l.names.includes(sel.value)).slice(-8).reverse().map(l =>
+        `${new Date(l.t).toLocaleDateString()} · ${l.g} · ${l.names.join(" v ").replace(/</g, "&lt;")} · won: ${l.names[l.w].replace(/</g, "&lt;")}`).join("<br>") + `</div>`;
+    body.innerHTML = h;
+  }
+
+  function exportData() {
+    const b = new Blob([JSON.stringify({ v: 3, legs: D.legs })], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(b);
+    a.download = "darts-stats-" + new Date().toISOString().slice(0, 10) + ".json";
+    document.body.appendChild(a); a.click(); a.remove();
+    $("sMsg").innerText = "Backup saved to your Downloads";
+  }
+  function importData(ev) {
+    const f = ev.target.files[0];
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      try {
+        const d = JSON.parse(rd.result);
+        if (!Array.isArray(d.legs)) throw 0;
+        const have = new Set(D.legs.map(l => l.lid));
+        let n = 0;
+        d.legs.forEach(l => {
+          if (l && Array.isArray(l.names) && Array.isArray(l.turns) && !have.has(l.lid)) { D.legs.push(l); have.add(l.lid); n++; }
+        });
+        D.legs.sort((a, b) => a.t - b.t);
+        store(); renderStats();
+        $("sMsg").innerText = `Imported ${n} new leg${n === 1 ? "" : "s"}`;
+      } catch (_) { $("sMsg").innerText = "That file isn't a valid darts backup"; }
+    };
+    rd.readAsText(f);
+    ev.target.value = "";
+  }
+  function clearData() {
+    if (confirm("Delete ALL saved stats? Export first if you want a backup.")) { D.legs = []; store(); renderStats(); }
+  }
+
+  // ---------- Speech parsing ----------
+  const UNITS = {one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9};
+  const TEENS = {ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,sixteen:16,seventeen:17,eighteen:18,nineteen:19};
+  const TENS  = {twenty:20,thirty:30,forty:40,fifty:50,sixty:60,seventy:70,eighty:80,ninety:90};
+
+  function wordsToDigits(text) {
+    const out = [];
+    let total = 0, last = null;
+    const flush = () => { if (last) { out.push(String(total)); total = 0; last = null; } };
+    for (const w of text.split(/\s+/)) {
+      if (w in UNITS) {
+        if (last === "t" || last === "h") { total += UNITS[w]; last = "u2"; } else { flush(); total = UNITS[w]; last = "u"; }
+      } else if (w in TEENS) {
+        if (last === "h") { total += TEENS[w]; last = "teen"; } else { flush(); total = TEENS[w]; last = "teen"; }
+      } else if (w in TENS) {
+        if (last === "h") { total += TENS[w]; last = "t"; } else { flush(); total = TENS[w]; last = "t"; }
+      } else if (w === "hundred") {
+        if (last === "u") { total *= 100; last = "h"; } else { flush(); total = 100; last = "h"; }
+      } else if (w === "and" && last) { continue; }
+      else { flush(); out.push(w); }
+    }
+    flush();
+    return out.join(" ");
+  }
+
+  function parseSpeech(text) {
+    let c = text.toLowerCase().trim().replace(/[,.]/g, " ");
+    if (!c) return;
+    if (/\bundo\b/.test(c)) { undo(); return; }
+    if (/\bnext\b/.test(c)) { nextPlayer(); return; }
+    if (/\b(reset|new game|new leg)\b/.test(c)) { newLeg(); return; }
+    c = c.replace(/\btreble\b|\btrouble\b|\btriple\b/g, "triple")
+         .replace(/\bt\s?(\d+)/g, "triple $1").replace(/\bd\s?(\d+)/g, "double $1")
+         .replace(/\bbullseye\b|\bbull's eye\b|\bdouble bull\b/g, "bull")
+         .replace(/\bouter bull\b|\bsingle bull\b/g, "25")
+         .replace(/\bto\b|\btoo\b/g, "two").replace(/\bfor\b/g, "four");
+    c = wordsToDigits(c);
+
+    const darts = [], re = /(triple|double|single)?\s*(\d+|bull|miss|zero|nothing)/g;
+    let m;
+    while ((m = re.exec(c)) !== null) darts.push({ mod: m[1] || null, val: m[2] });
+    if (!darts.length) { render(`Didn't catch a score in: "${text}"`); return; }
+
+    const hasMod = darts.some(d => d.mod || d.val === "bull" || d.val === "miss" || d.val === "25");
+    if (S.game !== "cricket" && !hasMod && darts.length === 1) {
+      const n = parseInt(darts[0].val, 10);
+      if (!isNaN(n)) { turnTotal(n); return; }
+    }
+    for (const d of darts) {
+      let n, mult;
+      if (d.val === "miss" || d.val === "zero" || d.val === "nothing") { n = 0; mult = 1; }
+      else if (d.val === "bull") { n = 25; mult = d.mod === "single" ? 1 : 2; }
+      else {
+        n = parseInt(d.val, 10);
+        if (n === 25) mult = d.mod === "double" ? 2 : 1;
+        else if (n >= 1 && n <= 20) mult = d.mod === "triple" ? 3 : d.mod === "double" ? 2 : 1;
+        else { render(`"${d.val}" isn't a valid dart.`); return; }
+      }
+      if (!dart(n, mult)) break;
+    }
+  }
+
+  // ---------- Microphone ----------
+  async function setWakeLock(on) {
+    try {
+      if (on && "wakeLock" in navigator) wakeLock = await navigator.wakeLock.request("screen");
+      else if (wakeLock) { await wakeLock.release(); wakeLock = null; }
+    } catch (_) {}
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && isListening) setWakeLock(true);
+  });
+
+  function setupRecognition() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return null;
+    const r = new SR();
+    r.lang = "en-US"; r.continuous = true; r.interimResults = false;
+    r.onresult = e => {
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) {
+          const t = e.results[i][0].transcript;
+          $("status").innerText = `Heard: "${t}"`;
+          parseSpeech(t);
+        }
+      }
+    };
+    r.onerror = e => {
+      if (e.error === "no-speech" || e.error === "aborted") return;
+      isListening = false; setMicUI(false); setWakeLock(false);
+      $("status").innerText = e.error === "not-allowed" || e.error === "service-not-allowed"
+        ? "Microphone blocked. Allow mic access (needs https or localhost)." : `Mic error: ${e.error}`;
+    };
+    r.onend = () => { if (isListening) { try { r.start(); } catch (_) {} } else setMicUI(false); };
+    return r;
+  }
+  function setMicUI(on) {
+    $("micBtn").innerText = on ? "Stop Listening" : "Start Listening";
+    $("micBtn").classList.toggle("listening", on);
+  }
+  function toggleMic() {
+    if (!recognition) recognition = setupRecognition();
+    if (!recognition) { $("status").innerText = "Speech recognition isn't supported here. Use Chrome (Android) or Safari (iOS)."; return; }
+    if (isListening) {
+      isListening = false; recognition.stop(); setMicUI(false); setWakeLock(false);
+      $("status").innerText = "Stopped listening";
+    } else {
+      try {
+        isListening = true; recognition.start(); setMicUI(true); setWakeLock(true);
+        $("status").innerText = "Listening… say your darts or turn total";
+      } catch (err) { isListening = false; $("status").innerText = "Couldn't start mic: " + err.message; }
+    }
+  }
+
+  show("Start");
+</script>
+</body>
+</html>
