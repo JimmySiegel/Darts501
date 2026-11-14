@@ -54,6 +54,20 @@
   let turnHistory = [];
   let isListening = false;
   let recognition = null;
+  let wakeLock = null;
+async function setWakeLock(on) {
+  try {
+    if (on && 'wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+    } else if (wakeLock) {
+      await wakeLock.release();
+      wakeLock = null;
+    }
+  } catch (_) {}
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && isListening) setWakeLock(true);
+});
 
   const bogeyNumbers = [169, 168, 166, 165, 163, 162, 159];
 
