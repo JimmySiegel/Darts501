@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voice 501 Darts Scorer</title>
+<style>
+  body{font-family:system-ui,-apple-system,sans-serif;background:#121212;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px;text-align:center;box-sizing:border-box}
+  .score-box{font-size:9rem;font-weight:800;line-height:1;margin:10px 0;color:#00e676}
+  .turn-tracker{display:flex;gap:12px;margin:10px 0 20px}
+  .dart-pill{background:#1e1e1e;border:2px solid #333;border-radius:8px;padding:8px 18px;font-size:1.1rem;font-weight:700;color:#757575;min-width:65px}
+  .dart-pill.filled{border-color:#2979ff;color:#fff;background:#1a237e}
+  .checkout-box{background:#1e1e1e;border:2px solid #333;border-radius:12px;padding:18px 36px;margin:10px 0;min-width:280px}
+  .label{font-size:.85rem;text-transform:uppercase;letter-spacing:2px;color:#9e9e9e;margin-bottom:6px}
+  .checkout-text{font-size:2.1rem;font-weight:700;color:#ffab00}
+  .status{font-size:1.15rem;margin:15px 0;color:#64b5f6;min-height:1.5em}
+  .controls{display:flex;gap:12px;margin-top:15px;flex-wrap:wrap;justify-content:center}
+  button{padding:14px 24px;font-size:1.05rem;font-weight:600;border:none;border-radius:8px;cursor:pointer;background:#2979ff;color:#fff}
+  button.secondary{background:#333}
+  button.listening{background:#d50000}
+  .history{margin-top:22px;color:#757575;font-size:.95rem}
+</style>
+</head>
+<body>
+
+  <div class="label">Remaining Score</div>
+  <div id="score" class="score-box">501</div>
+
+  <div class="turn-tracker">
+    <div id="dart1" class="dart-pill">Dart 1</div>
+    <div id="dart2" class="dart-pill">Dart 2</div>
+    <div id="dart3" class="dart-pill">Dart 3</div>
+  </div>
+
+  <div class="checkout-box">
+    <div class="label">Suggested Target</div>
+    <div id="checkout" class="checkout-text">T20 - T20 - T20</div>
+  </div>
+
+  <div id="status" class="status">Tap "Start Listening", then say darts ("triple twenty, double sixteen") or a turn total ("one hundred and forty")</div>
+
+  <div class="controls">
+    <button id="micBtn" onclick="toggleMic()">Start Listening</button>
+    <button class="secondary" onclick="undo()">Undo</button>
+    <button class="secondary" onclick="resetGame()">Reset 501</button>
+  </div>
+
+  <div id="history" class="history">Turn History: None</div>
+
+<script>
+  let score = 501;
+  let turnStartScore = 501;
+  let currentDarts = [];
+  let turnHistory = [];
+  let isListening = false;
+  let recognition = null;
+
+  const bogeyNumbers = [169, 168, 166, 165, 163, 162, 159];
+
+  const checkouts = {
+    170:"T20 - T20 - Bull",167:"T20 - T19 - Bull",164:"T20 - T18 - Bull",
+    161:"T20 - T17 - Bull",160:"T20 - T20 - D20",158:"T20 - T20 - D19",
+    157:"T20 - T19 - D20",156:"T20 - T20 - D18",155:"T20 - T19 - D19",
+    154:"T20 - T18 - D20",153:"T20 - T19 - D18",152:"T20 - T20 - D16",
+    151:"T20 - T17 - D20",150:"T20 - T18 - D18",149:"T20 - T19 - D16",
+    148:"T20 - T16 - D20",147:"T20 - T17 - D18",146:"T20 - T18 - D16",
+    145:"T20 - T15 - D20",144:"T20 - T20 - D12",143:"T20 - T17 - D16",
+    142:"T20 - T14 - D20",141:"T20 - T19 - D12",140:"T20 - T20 - D10",
+    139:"T19 - T14 - D20",138:"T20 - T18 - D12",137:"T20 - T19 - D10",
+    136:"T20 - T20 - D8",135:"T20 - T17 - D12",134:"T20 - T14 - D16",
+    133:"T20 - T19 - D8",132:"T20 - T16 - D12",131:"T20 - T13 - D16",
+    130:"T20 - T20 - D5",129:"T19 - T16 - D12",128:"T18 - T14 - D16",
+    127:"T20 - T17 - D8",126:"T19 - T19 - D6",125:"25 - T20 - D20",
+    124:"T20 - T16 - D8",123:"T19 - T16 - D9",122:"T18 - T20 - D4",
+    121:"T17 - T10 - D20",120:"T20 - 20 - D20",119:"T19 - T12 - D13",
+    118:"T20 - 18 - D20",117:"T20 - 17 - D20",116:"T20 - 16 - D20",
+    115:"T20 - 15 - D20",114:"T20 - 14 - D20",113:"T20 - 13 - D20",
+    112:"T20 - 12 - D20",111:"T20 - 19 - D16",110:"T20 - 18 - D16",
+    109:"T19 - 20 - D16",108:"T20 - 16 - D16",107:"T19 - 18 - D16",
+    106:"T20 - 14 - D16",105:"T20 - 13 - D16",104:"T18 - 18 - D16",
+    103:"T20 - 11 - D16",102:"T20 - 10 - D16",101:"T17 - 18 - D16",
+    100:"T20 - D20",99:"T19 - 10 - D16",98:"T20 - D19",97:"T19 - D20",
+    96:"T20 - D18",95:"T19 - D19",94:"T18 - D20",93:"T19 - D18",
+    92:"T20 - D16",91:"T17 - D20",90:"T20 - D15",89:"T19 - D16",
+    88:"T16 - D20",87:"T17 - D18",86:"T18 - D16",85:"T15 - D20",
+    84:"T20 - D12",83:"T17 - D16",82:"Bull - D16",81:"T19 - D12",
+    80:"T20 - D10",79:"T13 - D20",78:"T18 - D12",77:"T19 - D10",
+    76:"T20 - D8",75:"T17 - D12",74:"T14 - D16",73:"T19 - D8",
+    72:"T16 - D12",71:"T13 - D16",70:"T10 - D20",69:"T19 - D6",
+    68:"T20 - D4",67:"T17 - D8",66:"T10 - D18",65:"25 - D20",
+    64:"T16 - D8",63:"T13 - D12",62:"T10 - D16",61:"25 - D18",
+    60:"20 - D20",59:"19 - D20",58:"18 - D20",57:"17 - D20",
+    56:"16 - D20",55:"15 - D20",54:"14 - D20",53:"13 - D20",
+    52:"12 - D20",51:"19 - D16",50:"18 - D16",49:"17 - D16",
+    48:"16 - D16",47:"15 - D16",46:"14 - D16",45:"13 - D16",
+    44:"12 - D16",43:"11 - D16",42:"10 - D16",41:"9 - D16",
+    40:"D20",38:"D19",36:"D18",34:"D17",32:"D16",30:"D15",
+    28:"D14",26:"D13",24:"D12",22:"D11",20:"D10",18:"D9",
+    16:"D8",14:"D7",12:"D6",10:"D5",8:"D4",6:"D3",4:"D2",2:"D1"
+  };
+
+  function getSuggestion(rem) {
+    if (rem === 0) return "GAME SHOT!";
+    if (rem > 170) return "Power Scoring (T20 / T19)";
+    if (checkouts[rem]) return checkouts[rem];
+    if (bogeyNumbers.includes(rem)) return "Bogey Number (no 3-dart finish)";
+    if (rem < 40 && rem % 2 === 1) return `1 - D${(rem - 1) / 2}`;
+    return "T20";
+  }
+
+  function updateUI(msg) {
+    document.getElementById("score").innerText = score;
+    document.getElementById("checkout").innerText = getSuggestion(score);
+    document.getElementById("history").innerText =
+      "Turn History: " + (turnHistory.length ? turnHistory.join(", ") : "None");
+
+    for (let i = 0; i < 3; i++) {
+      const pill = document.getElementById(`dart${i + 1}`);
+      if (currentDarts[i]) {
+        pill.innerText = currentDarts[i].label;
+        pill.classList.add("filled");
+      } else {
+        pill.innerText = `Dart ${i + 1}`;
+        pill.classList.remove("filled");
+      }
+    }
+    if (msg) document.getElementById("status").innerText = msg;
+  }
+
+  function commitTurn(totalPts, summaryLabel) {
+    turnHistory.push(`${totalPts} (${summaryLabel})`);
+    currentDarts = [];
+    turnStartScore = score;
+  }
+
+  function handleBust(reason) {
+    score = turnStartScore;
+    currentDarts = [];
+    turnHistory.push("BUST (0)");
+    updateUI(`BUST! ${reason} Score reset to ${score}.`);
+  }
+
+  // returns true if more darts can follow in this turn
+  function recordSingleDart(pts, label, isDouble) {
+    if (currentDarts.length === 0) turnStartScore = score;
+    const next = score - pts;
+
+    if (next < 0 || next === 1 || (next === 0 && !isDouble)) {
+      handleBust(`${label} leaves ${next < 0 ? "below 0" : next === 1 ? "1" : "0 without a double"}.`);
+      return false;
+    }
+
+    score = next;
+    currentDarts.push({ pts, label });
+
+    if (score === 0) {
+      const sum = currentDarts.reduce((a, b) => a + b.pts, 0);
+      commitTurn(sum, currentDarts.map(d => d.label).join(", "));
+      updateUI(`GAME SHOT! Checked out with ${label}!`);
+      return false;
+    }
+    if (currentDarts.length === 3) {
+      const sum = currentDarts.reduce((a, b) => a + b.pts, 0);
+      const labels = currentDarts.map(d => d.label).join(", ");
+      commitTurn(sum, labels);
+      updateUI(`Turn complete: ${sum} (${labels})`);
+      return true;
+    }
+    updateUI(`Dart ${currentDarts.length}: ${label} (-${pts})`);
+    return true;
+  }
+
+  function recordTurnTotal(pts) {
+    if (currentDarts.length > 0) {
+      updateUI(`Finish your current darts or say "undo" before calling a turn total.`);
+      return;
+    }
+    if (pts < 0 || pts > 180) { updateUI(`Invalid turn score: ${pts}`); return; }
+
+    turnStartScore = score;
+    const next = score - pts;
+    if (next < 0 || next === 1) { handleBust(`Turn score ${pts} busts.`); return; }
+
+    score = next;
+    commitTurn(pts, "Turn Total");
+    updateUI(score === 0 ? `GAME SHOT! Checked out ${pts}!` : `Subtracted turn total: ${pts}`);
+  }
+
+  function undo() {
+    if (currentDarts.length > 0) {
+      const removed = currentDarts.pop();
+      score += removed.pts;
+      updateUI(`Removed ${removed.label}`);
+      return;
+    }
+    if (turnHistory.length === 0) return;
+    const lastEntry = turnHistory.pop();
+    const m = lastEntry.match(/^(?:BUST\s*\()?(\d+)/);
+    if (m) {
+      score += parseInt(m[1], 10);
+      turnStartScore = score;
+    }
+    updateUI(`Undid last turn: ${lastEntry}`);
+  }
+
+  function resetGame() {
+    score = 501;
+    turnStartScore = 501;
+    currentDarts = [];
+    turnHistory = [];
+    updateUI("New 501 leg started");
+  }
+
+  // ---------- Speech parsing ----------
+  const UNITS = {one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9};
+  const TEENS = {ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,sixteen:16,seventeen:17,eighteen:18,nineteen:19};
+  const TENS  = {twenty:20,thirty:30,forty:40,fifty:50,sixty:60,seventy:70,eighty:80,ninety:90};
+
+  // Converts spoken number words to digits: "one hundred and forty" -> "140"
+  function wordsToDigits(text) {
+    const words = text.split(/\s+/);
+    const out = [];
+    let total = 0, last = null;
+
+    const flush = () => { if (last) { out.push(String(total)); total = 0; last = null; } };
+
+    for (const w of words) {
+      if (w in UNITS) {
+        if (last === "t" || last === "h") { total += UNITS[w]; last = "u2"; }
+        else { flush(); total = UNITS[w]; last = "u"; }
+      } else if (w in TEENS) {
+        if (last === "h") { total += TEENS[w]; last = "teen"; }
+        else { flush(); total = TEENS[w]; last = "teen"; }
+      } else if (w in TENS) {
+        if (last === "h") { total += TENS[w]; last = "t"; }
+        else { flush(); total = TENS[w]; last = "t"; }
+      } else if (w === "hundred") {
+        if (last === "u") { total *= 100; last = "h"; }
+        else { flush(); total = 100; last = "h"; }
+      } else if (w === "and" && last) {
+        continue;
+      } else {
+        flush();
+        out.push(w);
+      }
+    }
+    flush();
+    return out.join(" ");
+  }
+
+  function parseSpeech(text) {
+    let clean = text.toLowerCase().trim().replace(/[,.]/g, " ");
+    if (!clean) return;
+
+    if (/\bundo\b/.test(clean)) { undo(); return; }
+    if (/\b(reset|new game)\b/.test(clean)) { resetGame(); return; }
+
+    clean = clean
+      .replace(/\btreble\b|\btrouble\b|\btriple\b/g, "triple")
+      .replace(/\bt\s?(\d+)/g, "triple $1")
+      .replace(/\bd\s?(\d+)/g, "double $1")
+      .replace(/\bbullseye\b|\bbull's eye\b|\bdouble bull\b/g, "bull")
+      .replace(/\bouter bull\b|\bsingle bull\b/g, "25")
+      .replace(/\bto\b|\btoo\b/g, "two")
+      .replace(/\bfor\b/g, "four");
+
+    clean = wordsToDigits(clean);
+
+    const darts = [];
+    const re = /(triple|double|single)?\s*(\d+|bull|miss|zero|nothing)/g;
+    let m;
+    while ((m = re.exec(clean)) !== null) {
+      darts.push({ mod: m[1] || null, val: m[2] });
+    }
+    if (darts.length === 0) {
+      updateUI(`Didn't catch a score in: "${text}"`);
+      return;
+    }
+
+    const hasModifier = darts.some(d => d.mod || d.val === "bull" || d.val === "miss");
+
+    if (!hasModifier && darts.length === 1) {
+      const n = parseInt(darts[0].val, 10);
+      if (!isNaN(n)) { recordTurnTotal(n); return; }
+    }
+
+    for (const d of darts) {
+      let pts, label, isDouble = false;
+      if (d.val === "bull") {
+        if (d.mod === "single") { pts = 25; label = "25"; }
+        else { pts = 50; label = "Bull"; isDouble = true; }
+      } else if (d.val === "miss" || d.val === "zero" || d.val === "nothing") {
+        pts = 0; label = "Miss";
+      } else {
+        const n = parseInt(d.val, 10);
+        if (n === 25) {
+          if (d.mod === "double") { pts = 50; label = "Bull"; isDouble = true; }
+          else { pts = 25; label = "25"; }
+        } else if (n >= 1 && n <= 20) {
+          if (d.mod === "triple") { pts = n * 3; label = `T${n}`; }
+          else if (d.mod === "double") { pts = n * 2; label = `D${n}`; isDouble = true; }
+          else { pts = n; label = `${n}`; }
+        } else {
+          updateUI(`"${d.val}" isn't a valid dart.`);
+          return;
+        }
+      }
+      if (!recordSingleDart(pts, label, isDouble)) break;
+    }
+  }
+
+  // ---------- Microphone ----------
+  function setupRecognition() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return null;
+
+    const r = new SR();
+    r.lang = "en-US";
+    r.continuous = true;
+    r.interimResults = false;
+    r.maxAlternatives = 1;
+
+    r.onresult = (event) => {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          const text = event.results[i][0].transcript;
+          document.getElementById("status").innerText = `Heard: "${text}"`;
+          parseSpeech(text);
+        }
+      }
+    };
+
+    r.onerror = (e) => {
+      if (e.error === "no-speech" || e.error === "aborted") return;
+      let msg = `Mic error: ${e.error}`;
+      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+        msg = "Microphone blocked. Allow mic access (page must be served over https:// or localhost).";
+      }
+      isListening = false;
+      setMicUI(false);
+      document.getElementById("status").innerText = msg;
+    };
+
+    r.onend = () => {
+      if (isListening) {
+        try { r.start(); } catch (_) {}
+      } else {
+        setMicUI(false);
+      }
+    };
+    return r;
+  }
+
+  function setMicUI(on) {
+    const btn = document.getElementById("micBtn");
+    btn.innerText = on ? "Stop Listening" : "Start Listening";
+    btn.classList.toggle("listening", on);
+  }
+
+  function toggleMic() {
+    if (!recognition) recognition = setupRecognition();
+    if (!recognition) {
+      document.getElementById("status").innerText =
+        "Speech recognition isn't supported here. Use Chrome (Android) or Safari (iOS).";
+      return;
+    }
+    if (isListening) {
+      isListening = false;
+      recognition.stop();
+      setMicUI(false);
+      document.getElementById("status").innerText = "Stopped listening";
+    } else {
+      try {
+        isListening = true;
+        recognition.start();
+        setMicUI(true);
+        document.getElementById("status").innerText = "Listening… say your darts or turn total";
+      } catch (err) {
+        isListening = false;
+        document.getElementById("status").innerText = "Couldn't start mic: " + err.message;
+      }
+    }
+  }
+
+  updateUI();
+</script>
+</body>
+</html>
