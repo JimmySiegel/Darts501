@@ -3,226 +3,380 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Voice 501 Darts Scorer</title>
+<title>Voice Darts</title>
 <style>
-  body{font-family:system-ui,-apple-system,sans-serif;background:#121212;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px;text-align:center;box-sizing:border-box}
-  .score-box{font-size:9rem;font-weight:800;line-height:1;margin:10px 0;color:#00e676}
-  .turn-tracker{display:flex;gap:12px;margin:10px 0 20px}
-  .dart-pill{background:#1e1e1e;border:2px solid #333;border-radius:8px;padding:8px 18px;font-size:1.1rem;font-weight:700;color:#757575;min-width:65px}
-  .dart-pill.filled{border-color:#2979ff;color:#fff;background:#1a237e}
-  .checkout-box{background:#1e1e1e;border:2px solid #333;border-radius:12px;padding:18px 36px;margin:10px 0;min-width:280px}
-  .label{font-size:.85rem;text-transform:uppercase;letter-spacing:2px;color:#9e9e9e;margin-bottom:6px}
-  .checkout-text{font-size:2.1rem;font-weight:700;color:#ffab00}
-  .status{font-size:1.15rem;margin:15px 0;color:#64b5f6;min-height:1.5em}
-  .controls{display:flex;gap:12px;margin-top:15px;flex-wrap:wrap;justify-content:center}
-  button{padding:14px 24px;font-size:1.05rem;font-weight:600;border:none;border-radius:8px;cursor:pointer;background:#2979ff;color:#fff}
-  button.secondary{background:#333}
+  body{font-family:system-ui,-apple-system,sans-serif;background:#121212;color:#fff;margin:0;padding:16px;text-align:center;box-sizing:border-box;min-height:100vh}
+  .page{max-width:560px;margin:0 auto;display:flex;flex-direction:column;align-items:center}
+  h1{margin:12px 0 18px}
+  select,input{background:#1e1e1e;color:#fff;border:2px solid #333;border-radius:8px;padding:12px;font-size:1rem;width:100%;max-width:320px;box-sizing:border-box;margin:5px 0}
+  button{padding:13px 20px;font-size:1rem;font-weight:600;border:none;border-radius:8px;background:#2979ff;color:#fff}
+  button.sec{background:#333}
+  button.big{font-size:1.2rem;padding:16px 40px;margin:14px 0 8px}
   button.listening{background:#d50000}
-  .history{margin-top:22px;color:#757575;font-size:.95rem}
+  .label{font-size:.8rem;text-transform:uppercase;letter-spacing:2px;color:#9e9e9e;margin:4px 0}
+  .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin:8px 0;width:100%}
+  .top{display:flex;justify-content:space-between;align-items:center;width:100%;margin-bottom:8px}
+  .boards{display:flex;gap:12px;width:100%}
+  .pl{flex:1;border:3px solid #222;border-radius:14px;padding:8px 4px;background:#181818}
+  .pl.active{border-color:#00e676}
+  .big-n{font-size:min(20vw,7.5rem);font-weight:800;line-height:1.05;color:#00e676}
+  .two .big-n{font-size:min(15vw,5rem)}
+  .tracker{display:flex;gap:10px;margin:10px 0}
+  .pill{background:#1e1e1e;border:2px solid #333;border-radius:8px;padding:8px 14px;font-weight:700;color:#757575;min-width:58px}
+  .pill.filled{border-color:#2979ff;color:#fff;background:#1a237e}
+  .box{background:#1e1e1e;border:2px solid #333;border-radius:12px;padding:10px 24px;margin:6px 0;min-width:260px}
+  .co{font-size:1.7rem;font-weight:700;color:#ffab00}
+  table.cr{border-collapse:collapse;font-size:1.5rem;font-weight:700}
+  table.cr td{padding:3px 22px;min-width:40px}
+  td.n{color:#ffab00}
+  .status{font-size:1.05rem;margin:10px 0;color:#64b5f6;min-height:1.5em}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%}
+  .card{background:#1e1e1e;border:2px solid #333;border-radius:10px;padding:10px}
+  .card b{display:block;font-size:1.5rem;color:#00e676}
+  .bars{display:flex;align-items:flex-end;gap:4px;height:90px;width:100%;margin:6px 0}
+  .bars div{flex:1;background:#2979ff;border-radius:3px 3px 0 0;min-height:2px}
+  .hist{width:100%;text-align:left;font-size:.9rem;color:#9e9e9e;line-height:1.7}
+  .hide{display:none}
 </style>
 </head>
 <body>
 
-  <div class="label">Remaining Score</div>
-  <div id="score" class="score-box">501</div>
+<!-- START PAGE -->
+<div id="pgStart" class="page">
+  <h1>🎯 Voice Darts</h1>
+  <div class="label">Game</div>
+  <select id="gameSel"><option value="501">501</option><option value="301">301</option><option value="cricket">Cricket</option></select>
+  <div class="label">Players</div>
+  <select id="plSel" onchange="togglePl()"><option value="1">1 Player</option><option value="2">2 Players</option></select>
+  <div class="label">Names</div>
+  <input id="n1" maxlength="12" placeholder="Player 1">
+  <input id="n2" maxlength="12" placeholder="Player 2">
+  <button class="big" onclick="startGame()">Start Game</button>
+  <button class="sec" onclick="show('Stats')">📊 Stats</button>
+</div>
 
-  <div class="turn-tracker">
-    <div id="dart1" class="dart-pill">Dart 1</div>
-    <div id="dart2" class="dart-pill">Dart 2</div>
-    <div id="dart3" class="dart-pill">Dart 3</div>
+<!-- GAME PAGE -->
+<div id="pgGame" class="page hide">
+  <div class="top">
+    <button class="sec" onclick="toMenu()">‹ Menu</button>
+    <div id="gLabel" class="label"></div>
+    <button class="sec" onclick="newLeg()">New Leg</button>
   </div>
-
-  <div class="checkout-box">
-    <div class="label">Suggested Target</div>
-    <div id="checkout" class="checkout-text">T20 - T20 - T20</div>
+  <div id="boards" class="boards"></div>
+  <div id="turn" class="label" style="margin-top:8px"></div>
+  <div class="tracker">
+    <div id="d0" class="pill">Dart 1</div><div id="d1" class="pill">Dart 2</div><div id="d2" class="pill">Dart 3</div>
   </div>
-
-  <div id="status" class="status">Tap "Start Listening", then say darts ("triple twenty, double sixteen") or a turn total ("one hundred and forty")</div>
-
-  <div class="controls">
+  <div id="coBox" class="box"><div class="label">Suggested Target</div><div id="checkout" class="co"></div></div>
+  <table id="cricket" class="cr hide"></table>
+  <div id="status" class="status"></div>
+  <div class="row">
     <button id="micBtn" onclick="toggleMic()">Start Listening</button>
-    <button class="secondary" onclick="undo()">Undo</button>
-    <button class="secondary" onclick="resetGame()">Reset 501</button>
+    <button class="sec" onclick="undo()">Undo</button>
+    <button class="sec" onclick="nextPlayer()">Next Player</button>
   </div>
+</div>
 
-  <div id="history" class="history">Turn History: None</div>
+<!-- STATS PAGE -->
+<div id="pgStats" class="page hide">
+  <div class="top"><button class="sec" onclick="show('Start')">‹ Menu</button><div class="label">Stats</div><span style="width:70px"></span></div>
+  <select id="stPl" onchange="renderStats()"></select>
+  <div id="stBody" style="width:100%"></div>
+  <div class="row" style="margin-top:16px">
+    <button onclick="exportData()">Export</button>
+    <button onclick="$('imp').click()">Import</button>
+    <button class="sec" onclick="clearData()">Clear</button>
+  </div>
+  <input id="imp" type="file" accept=".json,application/json" class="hide" onchange="importData(event)">
+  <div id="sMsg" class="status"></div>
+</div>
 
 <script>
-  let score = 501;
-  let turnStartScore = 501;
-  let currentDarts = [];
-  let turnHistory = [];
-  let isListening = false;
-  let recognition = null;
-  let wakeLock = null;
-async function setWakeLock(on) {
-  try {
-    if (on && 'wakeLock' in navigator) {
-      wakeLock = await navigator.wakeLock.request('screen');
-    } else if (wakeLock) {
-      await wakeLock.release();
-      wakeLock = null;
-    }
-  } catch (_) {}
-}
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && isListening) setWakeLock(true);
-});
+  const $ = id => document.getElementById(id);
+  let D = load(), S, hist = [];
+  let isListening = false, recognition = null, wakeLock = null;
 
-  const bogeyNumbers = [169, 168, 166, 165, 163, 162, 159];
+  function load() {
+    try { const d = JSON.parse(localStorage.getItem("darts_v3")); if (d && Array.isArray(d.legs)) return d; } catch (_) {}
+    return { names: ["P1", "P2"], legs: [] };
+  }
+  function store() { try { localStorage.setItem("darts_v3", JSON.stringify(D)); } catch (_) {} }
 
-  const checkouts = {
-    170:"T20 - T20 - Bull",167:"T20 - T19 - Bull",164:"T20 - T18 - Bull",
-    161:"T20 - T17 - Bull",160:"T20 - T20 - D20",158:"T20 - T20 - D19",
-    157:"T20 - T19 - D20",156:"T20 - T20 - D18",155:"T20 - T19 - D19",
-    154:"T20 - T18 - D20",153:"T20 - T19 - D18",152:"T20 - T20 - D16",
-    151:"T20 - T17 - D20",150:"T20 - T18 - D18",149:"T20 - T19 - D16",
-    148:"T20 - T16 - D20",147:"T20 - T17 - D18",146:"T20 - T18 - D16",
-    145:"T20 - T15 - D20",144:"T20 - T20 - D12",143:"T20 - T17 - D16",
-    142:"T20 - T14 - D20",141:"T20 - T19 - D12",140:"T20 - T20 - D10",
-    139:"T19 - T14 - D20",138:"T20 - T18 - D12",137:"T20 - T19 - D10",
-    136:"T20 - T20 - D8",135:"T20 - T17 - D12",134:"T20 - T14 - D16",
-    133:"T20 - T19 - D8",132:"T20 - T16 - D12",131:"T20 - T13 - D16",
-    130:"T20 - T20 - D5",129:"T19 - T16 - D12",128:"T18 - T14 - D16",
-    127:"T20 - T17 - D8",126:"T19 - T19 - D6",125:"25 - T20 - D20",
-    124:"T20 - T16 - D8",123:"T19 - T16 - D9",122:"T18 - T20 - D4",
-    121:"T17 - T10 - D20",120:"T20 - 20 - D20",119:"T19 - T12 - D13",
-    118:"T20 - 18 - D20",117:"T20 - 17 - D20",116:"T20 - 16 - D20",
-    115:"T20 - 15 - D20",114:"T20 - 14 - D20",113:"T20 - 13 - D20",
-    112:"T20 - 12 - D20",111:"T20 - 19 - D16",110:"T20 - 18 - D16",
-    109:"T19 - 20 - D16",108:"T20 - 16 - D16",107:"T19 - 18 - D16",
-    106:"T20 - 14 - D16",105:"T20 - 13 - D16",104:"T18 - 18 - D16",
-    103:"T20 - 11 - D16",102:"T20 - 10 - D16",101:"T17 - 18 - D16",
-    100:"T20 - D20",99:"T19 - 10 - D16",98:"T20 - D19",97:"T19 - D20",
-    96:"T20 - D18",95:"T19 - D19",94:"T18 - D20",93:"T19 - D18",
-    92:"T20 - D16",91:"T17 - D20",90:"T20 - D15",89:"T19 - D16",
-    88:"T16 - D20",87:"T17 - D18",86:"T18 - D16",85:"T15 - D20",
-    84:"T20 - D12",83:"T17 - D16",82:"Bull - D16",81:"T19 - D12",
-    80:"T20 - D10",79:"T13 - D20",78:"T18 - D12",77:"T19 - D10",
-    76:"T20 - D8",75:"T17 - D12",74:"T14 - D16",73:"T19 - D8",
-    72:"T16 - D12",71:"T13 - D16",70:"T10 - D20",69:"T19 - D6",
-    68:"T20 - D4",67:"T17 - D8",66:"T10 - D18",65:"25 - D20",
-    64:"T16 - D8",63:"T13 - D12",62:"T10 - D16",61:"25 - D18",
-    60:"20 - D20",59:"19 - D20",58:"18 - D20",57:"17 - D20",
-    56:"16 - D20",55:"15 - D20",54:"14 - D20",53:"13 - D20",
-    52:"12 - D20",51:"19 - D16",50:"18 - D16",49:"17 - D16",
-    48:"16 - D16",47:"15 - D16",46:"14 - D16",45:"13 - D16",
-    44:"12 - D16",43:"11 - D16",42:"10 - D16",41:"9 - D16",
-    40:"D20",38:"D19",36:"D18",34:"D17",32:"D16",30:"D15",
-    28:"D14",26:"D13",24:"D12",22:"D11",20:"D10",18:"D9",
-    16:"D8",14:"D7",12:"D6",10:"D5",8:"D4",6:"D3",4:"D2",2:"D1"
-  };
+  function show(p) {
+    ["Start", "Game", "Stats"].forEach(x => $("pg" + x).classList.toggle("hide", x !== p));
+    if (p === "Start") { $("n1").value = D.names[0]; $("n2").value = D.names[1]; togglePl(); }
+    if (p === "Stats") renderStats();
+    window.scrollTo(0, 0);
+  }
+  function togglePl() { $("n2").classList.toggle("hide", $("plSel").value === "1"); }
+  function toMenu() { if (isListening) toggleMic(); show("Start"); }
 
-  function getSuggestion(rem) {
-    if (rem === 0) return "GAME SHOT!";
-    if (rem > 170) return "Power Scoring (T20 / T19)";
-    if (checkouts[rem]) return checkouts[rem];
-    if (bogeyNumbers.includes(rem)) return "Bogey Number (no 3-dart finish)";
-    if (rem < 40 && rem % 2 === 1) return `1 - D${(rem - 1) / 2}`;
-    return "T20";
+  const startScore = () => (S.game === "301" ? 301 : 501);
+  const P = () => S.players[S.cur];
+  const nm = () => (S.np > 1 ? S.names[S.cur] : "You");
+
+  function startGame() {
+    const np = +$("plSel").value, game = $("gameSel").value;
+    const n1 = $("n1").value.trim().slice(0, 12) || "P1";
+    const n2 = $("n2").value.trim().slice(0, 12) || "P2";
+    D.names = [n1, n2]; store();
+    const names = np > 1 ? [n1, n1.toLowerCase() === n2.toLowerCase() ? n2 + " 2" : n2] : [n1];
+    S = { game, np, names, cur: 0, starter: 0, darts: [], winner: null, turns: [], tm: 0, lid: Date.now(), players: [] };
+    const n = startScore();
+    for (let i = 0; i < np; i++) S.players.push({ score: n, ts: n, pts: 0, wins: 0, marks: {20:0,19:0,18:0,17:0,16:0,15:0,25:0} });
+    hist = [];
+    show("Game");
+    render(game === "cricket" ? "Close 20-15 and Bull. Say darts like 'triple twenty'." : 'Say darts or a turn total, e.g. "one hundred and forty".');
   }
 
-  function updateUI(msg) {
-    document.getElementById("score").innerText = score;
-    document.getElementById("checkout").innerText = getSuggestion(score);
-    document.getElementById("history").innerText =
-      "Turn History: " + (turnHistory.length ? turnHistory.join(", ") : "None");
+  function snap() { hist.push(JSON.stringify(S)); if (hist.length > 300) hist.shift(); }
 
-    for (let i = 0; i < 3; i++) {
-      const pill = document.getElementById(`dart${i + 1}`);
-      if (currentDarts[i]) {
-        pill.innerText = currentDarts[i].label;
-        pill.classList.add("filled");
-      } else {
-        pill.innerText = `Dart ${i + 1}`;
-        pill.classList.remove("filled");
-      }
-    }
-    if (msg) document.getElementById("status").innerText = msg;
-  }
-
-  function commitTurn(totalPts, summaryLabel) {
-    turnHistory.push(`${totalPts} (${summaryLabel})`);
-    currentDarts = [];
-    turnStartScore = score;
-  }
-
-  function handleBust(reason) {
-    score = turnStartScore;
-    currentDarts = [];
-    turnHistory.push("BUST (0)");
-    updateUI(`BUST! ${reason} Score reset to ${score}.`);
-  }
-
-  // returns true if more darts can follow in this turn
-  function recordSingleDart(pts, label, isDouble) {
-    if (currentDarts.length === 0) turnStartScore = score;
-    const next = score - pts;
-
-    if (next < 0 || next === 1 || (next === 0 && !isDouble)) {
-      handleBust(`${label} leaves ${next < 0 ? "below 0" : next === 1 ? "1" : "0 without a double"}.`);
-      return false;
-    }
-
-    score = next;
-    currentDarts.push({ pts, label });
-
-    if (score === 0) {
-      const sum = currentDarts.reduce((a, b) => a + b.pts, 0);
-      commitTurn(sum, currentDarts.map(d => d.label).join(", "));
-      updateUI(`GAME SHOT! Checked out with ${label}!`);
-      return false;
-    }
-    if (currentDarts.length === 3) {
-      const sum = currentDarts.reduce((a, b) => a + b.pts, 0);
-      const labels = currentDarts.map(d => d.label).join(", ");
-      commitTurn(sum, labels);
-      updateUI(`Turn complete: ${sum} (${labels})`);
-      return true;
-    }
-    updateUI(`Dart ${currentDarts.length}: ${label} (-${pts})`);
-    return true;
-  }
-
-  function recordTurnTotal(pts) {
-    if (currentDarts.length > 0) {
-      updateUI(`Finish your current darts or say "undo" before calling a turn total.`);
-      return;
-    }
-    if (pts < 0 || pts > 180) { updateUI(`Invalid turn score: ${pts}`); return; }
-
-    turnStartScore = score;
-    const next = score - pts;
-    if (next < 0 || next === 1) { handleBust(`Turn score ${pts} busts.`); return; }
-
-    score = next;
-    commitTurn(pts, "Turn Total");
-    updateUI(score === 0 ? `GAME SHOT! Checked out ${pts}!` : `Subtracted turn total: ${pts}`);
+  function newLeg() {
+    snap();
+    S.starter = (S.starter + 1) % S.np;
+    S.cur = S.starter; S.darts = []; S.winner = null; S.turns = []; S.tm = 0; S.lid = Date.now();
+    S.players.forEach(p => { p.score = p.ts = startScore(); p.pts = 0; for (const k in p.marks) p.marks[k] = 0; });
+    render("New leg");
   }
 
   function undo() {
-    if (currentDarts.length > 0) {
-      const removed = currentDarts.pop();
-      score += removed.pts;
-      updateUI(`Removed ${removed.label}`);
-      return;
-    }
-    if (turnHistory.length === 0) return;
-    const lastEntry = turnHistory.pop();
-    const m = lastEntry.match(/^(?:BUST\s*\()?(\d+)/);
-    if (m) {
-      score += parseInt(m[1], 10);
-      turnStartScore = score;
-    }
-    updateUI(`Undid last turn: ${lastEntry}`);
+    if (!hist.length) return;
+    S = JSON.parse(hist.pop());
+    if (S.winner === null) { D.legs = D.legs.filter(l => l.lid !== S.lid); store(); }
+    render("Undone");
   }
 
-  function resetGame() {
-    score = 501;
-    turnStartScore = 501;
-    currentDarts = [];
-    turnHistory = [];
-    updateUI("New 501 leg started");
+  function nextPlayer() {
+    if (S.winner !== null) return;
+    snap();
+    const pts = S.game === "cricket" ? S.tm : P().ts - P().score;
+    endTurn(`${nm()} turn ended`, pts, S.darts.length, 0);
+  }
+
+  function logTurn(pts, n, b) { if (n > 0) S.turns.push({ p: S.cur, pts, n, ts: P().ts, b }); }
+
+  function endTurn(msg, pts, n, b) {
+    logTurn(pts, n, b);
+    S.cur = (S.cur + 1) % S.np; S.darts = []; S.tm = 0;
+    P().ts = P().score;
+    render(msg);
+  }
+
+  function win(msg, pts, n) {
+    logTurn(pts, n, 0);
+    S.winner = S.cur; P().wins++;
+    D.legs = D.legs.filter(l => l.lid !== S.lid);
+    D.legs.push({ lid: S.lid, t: Date.now(), g: S.game, names: S.names, w: S.winner, turns: S.turns, fp: S.players.map(p => p.pts) });
+    store();
+    render(msg);
+  }
+
+  // ---------- Checkout suggestions ----------
+  const prefD = [20,16,8,12,10,18,4,6,14,2,1,3,5,7,9,11,13,15,17,19].map(i => [i * 2, "D" + i]).concat([[50, "Bull"]]);
+  const opts = [];
+  for (let i = 20; i >= 1; i--) opts.push([i * 3, "T" + i]);
+  for (let i = 20; i >= 1; i--) opts.push([i, String(i)]);
+  opts.push([25, "25"], [50, "Bull"]);
+  const coMemo = {};
+
+  function findCheckout(r) {
+    for (const [dp, dl] of prefD) if (r === dp) return dl;
+    for (const [dp, dl] of prefD) {
+      const need = r - dp;
+      if (need > 0) for (const [p, l] of opts) if (p === need) return `${l} - ${dl}`;
+    }
+    for (const [dp, dl] of prefD) {
+      const need = r - dp;
+      if (need > 0) for (const [p1, l1] of opts) for (const [p2, l2] of opts) if (p1 + p2 === need) return `${l1} - ${l2} - ${dl}`;
+    }
+    return null;
+  }
+  function getSuggestion(r) {
+    if (r === 0) return "GAME SHOT!";
+    if (r > 170) return "Power Scoring (T20 / T19)";
+    if (!(r in coMemo)) coMemo[r] = findCheckout(r);
+    return coMemo[r] || "No 3-dart finish: set up (T20 / 20)";
+  }
+
+  // ---------- Scoring ----------
+  function dart(n, mult) {
+    if (S.winner !== null) { render("Leg over. Tap New Leg."); return false; }
+    snap();
+    const p = P(), pts = n * mult;
+    const label = n === 0 ? "Miss" : n === 25 ? (mult === 2 ? "Bull" : "25") : (mult === 3 ? "T" : mult === 2 ? "D" : "") + n;
+
+    if (S.game === "cricket") {
+      const opp = S.np > 1 ? S.players[1 - S.cur] : null;
+      S.darts.push(label);
+      if (n in p.marks) {
+        S.tm += mult;
+        let m = mult;
+        while (m-- > 0) {
+          if (p.marks[n] < 3) p.marks[n]++;
+          else if (!opp || opp.marks[n] < 3) p.pts += n;
+        }
+      }
+      const closed = Object.values(p.marks).every(v => v >= 3);
+      if (closed && (!opp || p.pts >= opp.pts)) { win(`${nm()} wins! Everything closed.`, S.tm, S.darts.length); return false; }
+      if (S.darts.length === 3) endTurn(`${nm()}: ${S.darts.join(", ")}`, S.tm, 3, 0);
+      else render(label);
+      return true;
+    }
+
+    const next = p.score - pts;
+    if (next < 0 || next === 1 || (next === 0 && mult !== 2)) {
+      p.score = p.ts;
+      endTurn(`${nm()} BUST on ${label}`, 0, S.darts.length + 1, 1);
+      return false;
+    }
+    p.score = next;
+    S.darts.push(label);
+    if (next === 0) { win(`GAME SHOT! ${nm()} wins with ${label}!`, p.ts, S.darts.length); return false; }
+    if (S.darts.length === 3) endTurn(`${nm()} scored ${p.ts - p.score}`, p.ts - p.score, 3, 0);
+    else render(`${label} (-${pts})`);
+    return true;
+  }
+
+  function turnTotal(pts) {
+    if (S.winner !== null) { render("Leg over. Tap New Leg."); return; }
+    if (S.darts.length) { render('Finish your darts or say "undo" first.'); return; }
+    if (pts > 180) { render(`Invalid turn score: ${pts}`); return; }
+    snap();
+    const p = P(), next = p.score - pts;
+    if (next < 0 || next === 1) { p.score = p.ts; endTurn(`${nm()} BUST (${pts})`, 0, 3, 1); return; }
+    p.score = next;
+    if (next === 0) { win(`GAME SHOT! ${nm()} checks out ${pts}!`, pts, 3); return; }
+    endTurn(`${nm()} scored ${pts}`, pts, 3, 0);
+  }
+
+  // ---------- Game display ----------
+  function render(msg) {
+    const x = S.game !== "cricket";
+    $("gLabel").innerText = `${S.game === "cricket" ? "Cricket" : S.game} · ${S.np} player${S.np > 1 ? "s" : ""}`;
+    const b = $("boards");
+    b.className = "boards" + (S.np > 1 ? " two" : "");
+    b.innerHTML = S.players.map((p, i) =>
+      `<div class="pl ${i === S.cur && S.winner === null ? "active" : ""}">
+        <div class="label">${S.np > 1 ? S.names[i] : (x ? "Remaining" : "Points")} · ${p.wins} win${p.wins === 1 ? "" : "s"}</div>
+        <div class="big-n">${x ? p.score : p.pts}</div></div>`).join("");
+    $("turn").innerText = S.winner !== null ? "Leg over" : (S.np > 1 ? `${S.names[S.cur]}'s turn` : "");
+    for (let i = 0; i < 3; i++) {
+      $("d" + i).innerText = S.darts[i] || `Dart ${i + 1}`;
+      $("d" + i).classList.toggle("filled", !!S.darts[i]);
+    }
+    $("coBox").classList.toggle("hide", !x);
+    $("cricket").classList.toggle("hide", x);
+    if (x) $("checkout").innerText = getSuggestion(P().score);
+    else {
+      const sym = ["", "/", "X", "◉"];
+      $("cricket").innerHTML = [20, 19, 18, 17, 16, 15, 25].map(n =>
+        `<tr><td>${sym[S.players[0].marks[n]]}</td><td class="n">${n === 25 ? "Bull" : n}</td><td>${S.np > 1 ? sym[S.players[1].marks[n]] : ""}</td></tr>`).join("");
+    }
+    if (msg) $("status").innerText = msg;
+  }
+
+  // ---------- Stats ----------
+  function calc(name) {
+    const r = { x: { legs:0, pl:0, w:0, pts:0, dn:0, f9:0, f9n:0, hi:0, n180:0, n140:0, best:0, att:0, made:0, hco:0, tr:[] }, c: { legs:0, pl:0, w:0, m:0, t:0, best:0 } };
+    D.legs.forEach(l => {
+      const i = l.names.indexOf(name);
+      if (i < 0) return;
+      const T = l.turns.filter(t => t.p === i), won = l.w === i;
+      if (l.g === "cricket") {
+        const c = r.c; c.legs++; if (l.names.length > 1) { c.pl++; if (won) c.w++; }
+        T.forEach(t => { c.m += t.pts; c.t++; c.best = Math.max(c.best, t.pts); });
+        return;
+      }
+      const x = r.x; x.legs++; if (l.names.length > 1) { x.pl++; if (won) x.w++; }
+      let lp = 0, ld = 0;
+      T.forEach((t, k) => {
+        x.pts += t.pts; x.dn += t.n; lp += t.pts; ld += t.n;
+        if (k < 3) { x.f9 += t.pts; x.f9n++; }
+        x.hi = Math.max(x.hi, t.pts);
+        if (t.pts === 180) x.n180++;
+        if (t.pts >= 140 && !t.b) x.n140++;
+        if (t.ts >= 2 && t.ts <= 170) x.att++;
+      });
+      if (won && T.length) {
+        x.made++;
+        x.hco = Math.max(x.hco, T[T.length - 1].pts);
+        x.best = x.best ? Math.min(x.best, ld) : ld;
+      }
+      if (ld) x.tr.push(lp * 3 / ld);
+    });
+    return r;
+  }
+
+  function renderStats() {
+    const names = [...new Set(D.legs.flatMap(l => l.names))];
+    const sel = $("stPl"), keep = sel.value;
+    sel.innerHTML = names.map(n => `<option>${n.replace(/</g, "&lt;")}</option>`).join("");
+    if (names.includes(keep)) sel.value = keep;
+    const body = $("stBody");
+    if (!names.length) { body.innerHTML = '<div class="status">No finished legs yet. Play a game to a finish and stats appear here.</div>'; return; }
+    const r = calc(sel.value), x = r.x, c = r.c;
+    const f1 = v => v.toFixed(1), card = (l, v) => `<div class="card"><div class="label">${l}</div><b>${v}</b></div>`;
+    let h = "";
+    if (x.legs) {
+      h += `<div class="label" style="margin-top:14px">301 / 501</div><div class="grid">` +
+        card("3-dart avg", x.dn ? f1(x.pts * 3 / x.dn) : "-") + card("First 9 avg", x.f9n ? f1(x.f9 / x.f9n) : "-") +
+        card("Highest turn", x.hi) + card("180s", x.n180) + card("140+ turns", x.n140) +
+        card("2-player W–L", x.pl ? `${x.w}–${x.pl - x.w}` : "-") + card("Best leg (darts)", x.best || "-") +
+        card("Checkout %", x.att ? Math.round(x.made / x.att * 100) + "%" : "-") + card("Highest checkout", x.hco || "-") + `</div>`;
+      const tr = x.tr.slice(-15), mx = Math.max(...tr, 1);
+      h += `<div class="label" style="margin-top:14px">Average per leg (last ${tr.length})</div><div class="bars">` +
+        tr.map(v => `<div style="height:${v / mx * 100}%" title="${f1(v)}"></div>`).join("") + `</div>`;
+    }
+    if (c.legs) {
+      h += `<div class="label" style="margin-top:14px">Cricket</div><div class="grid">` +
+        card("2-player W–L", c.pl ? `${c.w}–${c.pl - c.w}` : "-") + card("Marks / round", c.t ? f1(c.m / c.t) : "-") + card("Best round (marks)", c.best) + `</div>`;
+    }
+    h += `<div class="label" style="margin-top:14px">Recent legs</div><div class="hist">` +
+      D.legs.filter(l => l.names.includes(sel.value)).slice(-8).reverse().map(l => {
+        const e = s => String(s).replace(/</g, "&lt;");
+        const i = l.names.indexOf(sel.value), T = l.turns.filter(t => t.p === i);
+        const dn = T.reduce((a, t) => a + t.n, 0), pt = T.reduce((a, t) => a + t.pts, 0);
+        const two = l.names.length > 1;
+        const res = two ? (l.w === i ? "Won" : "Lost") + " v " + e(l.names[1 - i]) : "Solo";
+        const detail = l.g === "cricket"
+          ? `${T.length} rounds · ${dn} darts` + (l.fp ? ` · ${l.fp[i]} pts` : "")
+          : `${T.length} rounds · ${dn} darts · ${pt} pts`;
+        return `<b style="color:#fff">${l.g === "cricket" ? "Cricket" : l.g} · ${res}</b><br>${detail}`;
+      }).join("<br><br>") + `</div>`;
+    body.innerHTML = h;
+  }
+
+  function exportData() {
+    const b = new Blob([JSON.stringify({ v: 3, legs: D.legs })], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(b);
+    a.download = "darts-stats-" + new Date().toISOString().slice(0, 10) + ".json";
+    document.body.appendChild(a); a.click(); a.remove();
+    $("sMsg").innerText = "Backup saved to your Downloads";
+  }
+  function importData(ev) {
+    const f = ev.target.files[0];
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      try {
+        const d = JSON.parse(rd.result);
+        if (!Array.isArray(d.legs)) throw 0;
+        const have = new Set(D.legs.map(l => l.lid));
+        let n = 0;
+        d.legs.forEach(l => {
+          if (l && Array.isArray(l.names) && Array.isArray(l.turns) && !have.has(l.lid)) { D.legs.push(l); have.add(l.lid); n++; }
+        });
+        D.legs.sort((a, b) => a.t - b.t);
+        store(); renderStats();
+        $("sMsg").innerText = `Imported ${n} new leg${n === 1 ? "" : "s"}`;
+      } catch (_) { $("sMsg").innerText = "That file isn't a valid darts backup"; }
+    };
+    rd.readAsText(f);
+    ev.target.value = "";
+  }
+  function clearData() {
+    if (confirm("Delete ALL saved stats? Export first if you want a backup.")) { D.legs = []; store(); renderStats(); }
   }
 
   // ---------- Speech parsing ----------
@@ -230,173 +384,116 @@ document.addEventListener('visibilitychange', () => {
   const TEENS = {ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,sixteen:16,seventeen:17,eighteen:18,nineteen:19};
   const TENS  = {twenty:20,thirty:30,forty:40,fifty:50,sixty:60,seventy:70,eighty:80,ninety:90};
 
-  // Converts spoken number words to digits: "one hundred and forty" -> "140"
   function wordsToDigits(text) {
-    const words = text.split(/\s+/);
     const out = [];
     let total = 0, last = null;
-
     const flush = () => { if (last) { out.push(String(total)); total = 0; last = null; } };
-
-    for (const w of words) {
+    for (const w of text.split(/\s+/)) {
       if (w in UNITS) {
-        if (last === "t" || last === "h") { total += UNITS[w]; last = "u2"; }
-        else { flush(); total = UNITS[w]; last = "u"; }
+        if (last === "t" || last === "h") { total += UNITS[w]; last = "u2"; } else { flush(); total = UNITS[w]; last = "u"; }
       } else if (w in TEENS) {
-        if (last === "h") { total += TEENS[w]; last = "teen"; }
-        else { flush(); total = TEENS[w]; last = "teen"; }
+        if (last === "h") { total += TEENS[w]; last = "teen"; } else { flush(); total = TEENS[w]; last = "teen"; }
       } else if (w in TENS) {
-        if (last === "h") { total += TENS[w]; last = "t"; }
-        else { flush(); total = TENS[w]; last = "t"; }
+        if (last === "h") { total += TENS[w]; last = "t"; } else { flush(); total = TENS[w]; last = "t"; }
       } else if (w === "hundred") {
-        if (last === "u") { total *= 100; last = "h"; }
-        else { flush(); total = 100; last = "h"; }
-      } else if (w === "and" && last) {
-        continue;
-      } else {
-        flush();
-        out.push(w);
-      }
+        if (last === "u") { total *= 100; last = "h"; } else { flush(); total = 100; last = "h"; }
+      } else if (w === "and" && last) { continue; }
+      else { flush(); out.push(w); }
     }
     flush();
     return out.join(" ");
   }
 
   function parseSpeech(text) {
-    let clean = text.toLowerCase().trim().replace(/[,.]/g, " ");
-    if (!clean) return;
+    let c = text.toLowerCase().trim().replace(/[,.]/g, " ");
+    if (!c) return;
+    if (/\bundo\b/.test(c)) { undo(); return; }
+    if (/\bnext\b/.test(c)) { nextPlayer(); return; }
+    if (/\b(reset|new game|new leg)\b/.test(c)) { newLeg(); return; }
+    c = c.replace(/\btreble\b|\btrouble\b|\btriple\b/g, "triple")
+         .replace(/\bt\s?(\d+)/g, "triple $1").replace(/\bd\s?(\d+)/g, "double $1")
+         .replace(/\bbullseye\b|\bbull's eye\b|\bdouble bull\b/g, "bull")
+         .replace(/\bouter bull\b|\bsingle bull\b/g, "25")
+         .replace(/\bto\b|\btoo\b/g, "two").replace(/\bfor\b/g, "four");
+    c = wordsToDigits(c);
 
-    if (/\bundo\b/.test(clean)) { undo(); return; }
-    if (/\b(reset|new game)\b/.test(clean)) { resetGame(); return; }
-
-    clean = clean
-      .replace(/\btreble\b|\btrouble\b|\btriple\b/g, "triple")
-      .replace(/\bt\s?(\d+)/g, "triple $1")
-      .replace(/\bd\s?(\d+)/g, "double $1")
-      .replace(/\bbullseye\b|\bbull's eye\b|\bdouble bull\b/g, "bull")
-      .replace(/\bouter bull\b|\bsingle bull\b/g, "25")
-      .replace(/\bto\b|\btoo\b/g, "two")
-      .replace(/\bfor\b/g, "four");
-
-    clean = wordsToDigits(clean);
-
-    const darts = [];
-    const re = /(triple|double|single)?\s*(\d+|bull|miss|zero|nothing)/g;
+    const darts = [], re = /(triple|double|single)?\s*(\d+|bull|miss|zero|nothing)/g;
     let m;
-    while ((m = re.exec(clean)) !== null) {
-      darts.push({ mod: m[1] || null, val: m[2] });
-    }
-    if (darts.length === 0) {
-      updateUI(`Didn't catch a score in: "${text}"`);
-      return;
-    }
+    while ((m = re.exec(c)) !== null) darts.push({ mod: m[1] || null, val: m[2] });
+    if (!darts.length) { render(`Didn't catch a score in: "${text}"`); return; }
 
-    const hasModifier = darts.some(d => d.mod || d.val === "bull" || d.val === "miss");
-
-    if (!hasModifier && darts.length === 1) {
+    const hasMod = darts.some(d => d.mod || d.val === "bull" || d.val === "miss" || d.val === "25");
+    if (S.game !== "cricket" && !hasMod && darts.length === 1) {
       const n = parseInt(darts[0].val, 10);
-      if (!isNaN(n)) { recordTurnTotal(n); return; }
+      if (!isNaN(n)) { turnTotal(n); return; }
     }
-
     for (const d of darts) {
-      let pts, label, isDouble = false;
-      if (d.val === "bull") {
-        if (d.mod === "single") { pts = 25; label = "25"; }
-        else { pts = 50; label = "Bull"; isDouble = true; }
-      } else if (d.val === "miss" || d.val === "zero" || d.val === "nothing") {
-        pts = 0; label = "Miss";
-      } else {
-        const n = parseInt(d.val, 10);
-        if (n === 25) {
-          if (d.mod === "double") { pts = 50; label = "Bull"; isDouble = true; }
-          else { pts = 25; label = "25"; }
-        } else if (n >= 1 && n <= 20) {
-          if (d.mod === "triple") { pts = n * 3; label = `T${n}`; }
-          else if (d.mod === "double") { pts = n * 2; label = `D${n}`; isDouble = true; }
-          else { pts = n; label = `${n}`; }
-        } else {
-          updateUI(`"${d.val}" isn't a valid dart.`);
-          return;
-        }
+      let n, mult;
+      if (d.val === "miss" || d.val === "zero" || d.val === "nothing") { n = 0; mult = 1; }
+      else if (d.val === "bull") { n = 25; mult = d.mod === "single" ? 1 : 2; }
+      else {
+        n = parseInt(d.val, 10);
+        if (n === 25) mult = d.mod === "double" ? 2 : 1;
+        else if (n >= 1 && n <= 20) mult = d.mod === "triple" ? 3 : d.mod === "double" ? 2 : 1;
+        else { render(`"${d.val}" isn't a valid dart.`); return; }
       }
-      if (!recordSingleDart(pts, label, isDouble)) break;
+      if (!dart(n, mult)) break;
     }
   }
 
   // ---------- Microphone ----------
+  async function setWakeLock(on) {
+    try {
+      if (on && "wakeLock" in navigator) wakeLock = await navigator.wakeLock.request("screen");
+      else if (wakeLock) { await wakeLock.release(); wakeLock = null; }
+    } catch (_) {}
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && isListening) setWakeLock(true);
+  });
+
   function setupRecognition() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return null;
-
     const r = new SR();
-    r.lang = "en-US";
-    r.continuous = true;
-    r.interimResults = false;
-    r.maxAlternatives = 1;
-
-    r.onresult = (event) => {
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        if (event.results[i].isFinal) {
-          const text = event.results[i][0].transcript;
-          document.getElementById("status").innerText = `Heard: "${text}"`;
-          parseSpeech(text);
+    r.lang = "en-US"; r.continuous = true; r.interimResults = false;
+    r.onresult = e => {
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) {
+          const t = e.results[i][0].transcript;
+          $("status").innerText = `Heard: "${t}"`;
+          parseSpeech(t);
         }
       }
     };
-
-    r.onerror = (e) => {
+    r.onerror = e => {
       if (e.error === "no-speech" || e.error === "aborted") return;
-      let msg = `Mic error: ${e.error}`;
-      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
-        msg = "Microphone blocked. Allow mic access (page must be served over https:// or localhost).";
-      }
-      isListening = false;
-      setMicUI(false);
-      document.getElementById("status").innerText = msg;
+      isListening = false; setMicUI(false); setWakeLock(false);
+      $("status").innerText = e.error === "not-allowed" || e.error === "service-not-allowed"
+        ? "Microphone blocked. Allow mic access (needs https or localhost)." : `Mic error: ${e.error}`;
     };
-
-    r.onend = () => {
-      if (isListening) {
-        try { r.start(); } catch (_) {}
-      } else {
-        setMicUI(false);
-      }
-    };
+    r.onend = () => { if (isListening) { try { r.start(); } catch (_) {} } else setMicUI(false); };
     return r;
   }
-
   function setMicUI(on) {
-    const btn = document.getElementById("micBtn");
-    btn.innerText = on ? "Stop Listening" : "Start Listening";
-    btn.classList.toggle("listening", on);
+    $("micBtn").innerText = on ? "Stop Listening" : "Start Listening";
+    $("micBtn").classList.toggle("listening", on);
   }
-
   function toggleMic() {
     if (!recognition) recognition = setupRecognition();
-    if (!recognition) {
-      document.getElementById("status").innerText =
-        "Speech recognition isn't supported here. Use Chrome (Android) or Safari (iOS).";
-      return;
-    }
+    if (!recognition) { $("status").innerText = "Speech recognition isn't supported here. Use Chrome (Android) or Safari (iOS)."; return; }
     if (isListening) {
-      isListening = false;
-      recognition.stop();
-      setMicUI(false);
-      document.getElementById("status").innerText = "Stopped listening";
+      isListening = false; recognition.stop(); setMicUI(false); setWakeLock(false);
+      $("status").innerText = "Stopped listening";
     } else {
       try {
-        isListening = true;
-        recognition.start();
-        setMicUI(true);
-        document.getElementById("status").innerText = "Listening… say your darts or turn total";
-      } catch (err) {
-        isListening = false;
-        document.getElementById("status").innerText = "Couldn't start mic: " + err.message;
-      }
+        isListening = true; recognition.start(); setMicUI(true); setWakeLock(true);
+        $("status").innerText = "Listening… say your darts or turn total";
+      } catch (err) { isListening = false; $("status").innerText = "Couldn't start mic: " + err.message; }
     }
   }
 
-  updateUI();
+  show("Start");
 </script>
 </body>
 </html>
