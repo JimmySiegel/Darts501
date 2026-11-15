@@ -166,7 +166,7 @@
     logTurn(pts, n, 0);
     S.winner = S.cur; P().wins++;
     D.legs = D.legs.filter(l => l.lid !== S.lid);
-    D.legs.push({ lid: S.lid, t: Date.now(), g: S.game, names: S.names, w: S.winner, turns: S.turns });
+    D.legs.push({ lid: S.lid, t: Date.now(), g: S.game, names: S.names, w: S.winner, turns: S.turns, fp: S.players.map(p => p.pts) });
     store();
     render(msg);
   }
@@ -277,17 +277,17 @@
 
   // ---------- Stats ----------
   function calc(name) {
-    const r = { x: { legs:0, w:0, pts:0, dn:0, f9:0, f9n:0, hi:0, n180:0, n140:0, best:0, att:0, made:0, hco:0, tr:[] }, c: { legs:0, w:0, m:0, t:0, best:0 } };
+    const r = { x: { legs:0, pl:0, w:0, pts:0, dn:0, f9:0, f9n:0, hi:0, n180:0, n140:0, best:0, att:0, made:0, hco:0, tr:[] }, c: { legs:0, pl:0, w:0, m:0, t:0, best:0 } };
     D.legs.forEach(l => {
       const i = l.names.indexOf(name);
       if (i < 0) return;
       const T = l.turns.filter(t => t.p === i), won = l.w === i;
       if (l.g === "cricket") {
-        const c = r.c; c.legs++; if (won) c.w++;
+        const c = r.c; c.legs++; if (l.names.length > 1) { c.pl++; if (won) c.w++; }
         T.forEach(t => { c.m += t.pts; c.t++; c.best = Math.max(c.best, t.pts); });
         return;
       }
-      const x = r.x; x.legs++; if (won) x.w++;
+      const x = r.x; x.legs++; if (l.names.length > 1) { x.pl++; if (won) x.w++; }
       let lp = 0, ld = 0;
       T.forEach((t, k) => {
         x.pts += t.pts; x.dn += t.n; lp += t.pts; ld += t.n;
@@ -321,7 +321,7 @@
       h += `<div class="label" style="margin-top:14px">301 / 501</div><div class="grid">` +
         card("3-dart avg", x.dn ? f1(x.pts * 3 / x.dn) : "-") + card("First 9 avg", x.f9n ? f1(x.f9 / x.f9n) : "-") +
         card("Highest turn", x.hi) + card("180s", x.n180) + card("140+ turns", x.n140) +
-        card("Legs W–L", `${x.w}–${x.legs - x.w}`) + card("Best leg (darts)", x.best || "-") +
+        card("2-player W–L", x.pl ? `${x.w}–${x.pl - x.w}` : "-") + card("Best leg (darts)", x.best || "-") +
         card("Checkout %", x.att ? Math.round(x.made / x.att * 100) + "%" : "-") + card("Highest checkout", x.hco || "-") + `</div>`;
       const tr = x.tr.slice(-15), mx = Math.max(...tr, 1);
       h += `<div class="label" style="margin-top:14px">Average per leg (last ${tr.length})</div><div class="bars">` +
@@ -329,11 +329,20 @@
     }
     if (c.legs) {
       h += `<div class="label" style="margin-top:14px">Cricket</div><div class="grid">` +
-        card("Legs W–L", `${c.w}–${c.legs - c.w}`) + card("Marks / round", c.t ? f1(c.m / c.t) : "-") + card("Best round (marks)", c.best) + `</div>`;
+        card("2-player W–L", c.pl ? `${c.w}–${c.pl - c.w}` : "-") + card("Marks / round", c.t ? f1(c.m / c.t) : "-") + card("Best round (marks)", c.best) + `</div>`;
     }
     h += `<div class="label" style="margin-top:14px">Recent legs</div><div class="hist">` +
-      D.legs.filter(l => l.names.includes(sel.value)).slice(-8).reverse().map(l =>
-        `${new Date(l.t).toLocaleDateString()} · ${l.g} · ${l.names.join(" v ").replace(/</g, "&lt;")} · won: ${l.names[l.w].replace(/</g, "&lt;")}`).join("<br>") + `</div>`;
+      D.legs.filter(l => l.names.includes(sel.value)).slice(-8).reverse().map(l => {
+        const e = s => String(s).replace(/</g, "&lt;");
+        const i = l.names.indexOf(sel.value), T = l.turns.filter(t => t.p === i);
+        const dn = T.reduce((a, t) => a + t.n, 0), pt = T.reduce((a, t) => a + t.pts, 0);
+        const two = l.names.length > 1;
+        const res = two ? (l.w === i ? "Won" : "Lost") + " v " + e(l.names[1 - i]) : "Solo";
+        const detail = l.g === "cricket"
+          ? `${T.length} rounds · ${dn} darts` + (l.fp ? ` · ${l.fp[i]} pts` : "")
+          : `${T.length} rounds · ${dn} darts · ${pt} pts`;
+        return `<b style="color:#fff">${l.g === "cricket" ? "Cricket" : l.g} · ${res}</b><br>${detail}`;
+      }).join("<br><br>") + `</div>`;
     body.innerHTML = h;
   }
 
