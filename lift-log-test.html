@@ -76,7 +76,7 @@ svg.ch text{fill:var(--ov);font-size:9px;text-anchor:middle}svg.ch text.v{fill:v
 <script>
 const $=s=>document.querySelector(s),uid=()=>Math.random().toString(36).slice(2,9);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const TY={plate:'Plate loaded',machine:'Machine',cable:'Cable',db:'Dumbbell',other:'Other'};
+const TY={plate:'Plate loaded',fixed:'Fixed barbell',machine:'Machine',cable:'Cable',db:'Dumbbell',other:'Other'};
 const iso=t=>t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0');
 const today=()=>iso(new Date()),dt=d=>new Date(d+'T00:00');
 const fd=d=>dt(d).toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'});
@@ -169,32 +169,4 @@ function weeks(){const t=dt(wk(today())),a=[];for(let i=0;i<8;i++){a.unshift(iso
 const k=n=>n>=1000?(n/1000).toFixed(1)+'k':Math.round(n);
 function bars(v,l){const m=Math.max(1,...v),w=320/v.length;return`<svg class=ch viewBox="0 0 320 130">`+v.map((x,i)=>{const h=x/m*80;return`<rect x="${i*w+8}" y="${100-h}" width="${w-16}" height="${Math.max(h,1)}" rx="4" fill="var(--p)"/><text class=v x="${i*w+w/2}" y="${94-h}">${x?k(x):''}</text><text x="${i*w+w/2}" y="118">${l[i]}</text>`}).join('')+`</svg>`}
 function line(p){if(!p.length)return'';const ys=p.map(x=>x[1]),a=Math.min(...ys),b=Math.max(...ys),r=b-a||1,n=p.length,st=Math.ceil(n/7),X=i=>n<2?160:24+i*272/(n-1),Y=y=>120-(y-a)/r*70;
-return`<svg class=ch viewBox="0 0 320 160"><polyline fill="none" stroke="var(--p)" stroke-width="2.5" points="${p.map((x,i)=>X(i)+','+Y(x[1])).join(' ')}"/>`+p.map((x,i)=>{const sh=(i%st===0&&n-1-i>=st/2)||i===n-1;return`<circle cx="${X(i)}" cy="${Y(x[1])}" r="3.5" fill="var(--p)"/>`+(sh?`<text class=v x="${X(i)}" y="${Y(x[1])-9}">${Math.round(x[1])}</text><text x="${X(i)}" y="150">${+x[0].slice(5,7)+'/'+ +x[0].slice(8)}</text>`:'')}).join('')+`</svg>`}
-function line0(p){if(!p.length)return'';const ys=p.map(x=>x[1]),a=Math.min(...ys),b=Math.max(...ys),r=b-a||1,n=p.length;const X=i=>n<2?160:20+i*280/(n-1),Y=y=>100-(y-a)/r*70;
-return`<svg class=ch viewBox="0 0 320 130"><polyline fill="none" stroke="var(--p)" stroke-width="2.5" points="${p.map((x,i)=>X(i)+','+Y(x[1])).join(' ')}"/>`+p.map((x,i)=>`<circle cx="${X(i)}" cy="${Y(x[1])}" r="3.5" fill="var(--p)"/>`).join('')+`<text x="22" y="22">${Math.round(b)}</text><text x="22" y="118">${p[0][0].slice(5)}</text><text x="298" y="118">${p[n-1][0].slice(5)}</text></svg>`}
-function vStats(){if(!D.log.length)return`<div class=empty>Log a workout to see your stats.</div>`;
-const W=weeks(),c={},v={};D.log.forEach(e=>{const q=wk(e.date);c[q]=(c[q]||0)+1;v[q]=(v[q]||0)+vol(e)});
-const lb=W.map(x=>+x.slice(5,7)+'/'+ +x.slice(8)),cv=W.map(x=>c[x]||0),vv=W.map(x=>v[x]||0),avg=(cv.reduce((a,b)=>a+b,0)/8).toFixed(1);
-const names=[...new Set(D.log.flatMap(e=>e.entries.map(x=>x.name)))].sort();if(!names.includes(V.lift))V.lift=names[0];
-const ses=[...D.log].sort((a,b)=>a.date.localeCompare(b.date)).map(e=>({d:e.date,x:e.entries.find(x=>x.name===V.lift)})).filter(s=>s.x);
-let pr=null,be=0,tv=0;const pts=ses.map(s=>{let m=0;s.x.sets.forEach(t=>{if(!pr||t.w>pr.w||(t.w===pr.w&&t.r>pr.r))pr=t;if(s.x.type!=='cable')m=Math.max(m,e1(t,s.x.type));tv+=t.w*t.r*(s.x.type==='db'?2:1)});be=Math.max(be,m);return[s.d,m]}).filter(p=>p[1]>0);
-const dbn=ses[0].x.type==='db';
-return`<div class=grid><div class=card2><div class=sub>This week</div><div class=big>${cv[7]}</div></div><div class=card2><div class=sub>Avg per week</div><div class=big>${avg}</div></div></div>
-<div class=lab>Workouts per week</div>${bars(cv,lb)}<div class=lab>Volume per week (lb)</div>${bars(vv,lb)}
-<div class=lab>Lift stats</div><select id=ls onchange="V.lift=this.value;render()" style="width:100%">${names.map(n=>`<option ${n===V.lift?'selected':''}>${esc(n)}</option>`).join('')}</select>
-<div class=grid style="margin-top:8px"><div class=card2><div class=sub>PR${dbn?' (each)':''}</div><div class=big>${pr.w}×${pr.r}</div></div><div class=card2><div class=sub>Est. 1RM${dbn?' (both)':''}</div><div class=big>${be?Math.round(be):'—'}</div></div><div class=card2><div class=sub>Total volume</div><div class=big>${k(tv)}</div></div><div class=card2><div class=sub>Sessions</div><div class=big>${ses.length}</div></div></div>
-${pts.length?`<div class=lab>Est. 1RM over time</div>${line(pts)}`:''}`}
-
-/* SETTINGS + BACKUP */
-function sett(){dg(`<h3>Settings</h3><label>Bar weight (lb)<input id=sb type=number value="${D.bar}"></label><label>Plates per side (lb, comma separated)<input id=sp value="${D.plates.join(', ')}"></label>
-<button class=fill onclick="ssave()">Save settings</button><div class=lab>Backup</div><div class=row><button class=tonal onclick="expo()">Export</button><button class=tonal onclick="impo()">Import</button></div>
-<textarea id=bk placeholder="Export fills this with your data. Paste a backup here to import."></textarea><div id=bm class=sub></div><div class=acts><button class=text onclick="help()">Read me</button><button class=text onclick=cl()>Close</button></div>`)}
-function help(){dg(`<h3>Read me</h3><div style="font-size:.95rem;line-height:1.5"><p><b>Set up</b><br>Routine tab: tap + New routine, then + Add workout day, then + Add lift. Choose the lift type so plate-loaded lifts show the plate calculator.</p><p><b>Train</b><br>Pick a routine and a day. Adjust weight and reps, then check off each set. Tap Finish when done. Your plan updates to what you lifted. To log a past workout, change the date first.</p><p><b>History and Stats</b><br>Tap any workout in History to edit or delete it. Stats shows PRs, estimated 1RM, volume, and workouts per week.</p><p><b>Keep your data safe on iPhone</b><br>Your workouts are saved in your browser, not online. Safari can erase saved data after about a week without a visit. To prevent that, open this page in Safari, tap the Share button, choose Add to Home Screen, then always open the app from that icon.</p><p><b>Back up</b><br>Settings, then Export, and save the text somewhere safe. Import restores it, on this device or a new one.</p></div><div class=acts><button class=text onclick="sett()">Back</button><button class=fill onclick=cl()>Close</button></div>`)}
-function ssave(){D.bar=+$('#sb').value||45;const p=$('#sp').value.split(',').map(x=>+x).filter(x=>x>0).sort((a,b)=>b-a);if(p.length)D.plates=p;save();cl();render()}
-function expo(){const t=$('#bk');t.value=JSON.stringify({...D,cur:null});t.select();let m='Select all and copy this somewhere safe.';try{navigator.clipboard.writeText(t.value).then(()=>{$('#bm').textContent='Copied. Paste it into a note or file as your backup.'},()=>{})}catch(e){}$('#bm').textContent=m}
-function impo(){let d;try{d=JSON.parse($('#bk').value)}catch(e){}if(!d||!Array.isArray(d.days)||!Array.isArray(d.log)){$('#bm').textContent='That is not a valid backup.';return}
-sure('Replace all current data with this backup?',()=>{D=mig({...d,cur:null});save();render()})}
-render();
-</script>
-</body>
-</html>
+return`<svg class=ch viewBox="0 0 320 160"><polyline fill="none" stroke="var(--p)" stroke-width="2.5" points="${p.map((x,i)=>X(i)+','+Y(x[1])).join(' ')}"/>`+p.map((x,i)=>{const sh=(i%st===0&&n-1-i>=st/2)||i===n-1;return`<circle cx="${X(i)}" cy="${Y(x[1])}" r="3.5" fill="var(--p)"/>`+(sh?`<text class=v x="${X(i)}" y="${Y(x[1])-9}">${Math.round(x[1])}</text
